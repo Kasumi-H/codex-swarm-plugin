@@ -1,0 +1,1349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Codex Swarm</title>
+  <script src="/preload.js"></script>
+  <style>
+    /*
+     * Namespaced with --cs-* so host tokens pushed by preload.js onto :root
+     * (especially --muted, which is a surface background color in Antigravity)
+     * never collide with text foreground variables.
+     */
+    :root {
+      color-scheme: light;
+      /* Host Surfaces */
+      --cs-bg: var(--background, #f7f7f8);
+      --cs-card: var(--card, #ffffff);
+      --cs-surface: color-mix(in srgb, var(--cs-fg) 4.5%, var(--cs-bg));
+      --cs-input-bg: var(--card, #ffffff);
+
+      /* High-Contrast Theme-Adaptive Text */
+      --cs-fg: var(--foreground, #18181b);
+      --cs-fg-2: color-mix(in srgb, var(--cs-fg) 84%, var(--cs-bg));
+      --cs-fg-muted: color-mix(in srgb, var(--cs-fg) 68%, var(--cs-bg));
+
+      /* Borders & Accents */
+      --cs-border: color-mix(in srgb, var(--cs-fg) 15%, var(--cs-bg));
+      --cs-border-strong: color-mix(in srgb, var(--cs-fg) 26%, var(--cs-bg));
+      --cs-primary: var(--primary, #007acc);
+      --cs-primary-fg: var(--primary-foreground, #ffffff);
+
+      /* Status Colors (Light) */
+      --cs-blue: #0284c7;
+      --cs-blue-bg: color-mix(in srgb, #0284c7 14%, var(--cs-bg));
+      --cs-green: #15803d;
+      --cs-green-bg: color-mix(in srgb, #16a34a 15%, var(--cs-bg));
+      --cs-amber: #b45309;
+      --cs-amber-bg: color-mix(in srgb, #f59e0b 18%, var(--cs-bg));
+      --cs-red: #dc2626;
+      --cs-red-bg: color-mix(in srgb, #ef4444 15%, var(--cs-bg));
+      --cs-purple: #6d28d9;
+      --cs-purple-bg: color-mix(in srgb, #8b5cf6 15%, var(--cs-bg));
+
+      /* Host Fonts */
+      --cs-font: var(--font-family, "Google Sans Flex", "Google Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif);
+      --cs-mono: var(--editor-font-family, "Google Sans Code", ui-monospace, SFMono-Regular, Consolas, "Courier New", monospace);
+    }
+
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --cs-surface: color-mix(in srgb, var(--cs-fg) 7%, var(--cs-bg));
+      --cs-input-bg: color-mix(in srgb, var(--cs-fg) 9%, var(--cs-bg));
+      --cs-border: color-mix(in srgb, var(--cs-fg) 18%, var(--cs-bg));
+      --cs-border-strong: color-mix(in srgb, var(--cs-fg) 30%, var(--cs-bg));
+
+      /* Status Colors (Dark) */
+      --cs-blue: #38bdf8;
+      --cs-blue-bg: color-mix(in srgb, #38bdf8 18%, var(--cs-bg));
+      --cs-green: #4ade80;
+      --cs-green-bg: color-mix(in srgb, #22c55e 18%, var(--cs-bg));
+      --cs-amber: #fbbf24;
+      --cs-amber-bg: color-mix(in srgb, #f59e0b 20%, var(--cs-bg));
+      --cs-red: #f87171;
+      --cs-red-bg: color-mix(in srgb, #ef4444 20%, var(--cs-bg));
+      --cs-purple: #c4b5fd;
+      --cs-purple-bg: color-mix(in srgb, #8b5cf6 22%, var(--cs-bg));
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--cs-bg) !important;
+      color: var(--cs-fg) !important;
+      font-family: var(--cs-font) !important;
+      font-size: 13px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      background: var(--cs-bg);
+      color: var(--cs-fg);
+    }
+
+    /* Header & Tabs */
+    .header {
+      padding: 14px 16px 0 16px;
+      border-bottom: 1px solid var(--cs-border);
+      background: var(--cs-bg);
+      flex-shrink: 0;
+    }
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+    .swarm-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--cs-fg);
+      margin: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .live-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--cs-green);
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--cs-green);
+      box-shadow: 0 0 0 3px var(--cs-green-bg);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.45; }
+    }
+
+    .subtitle-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--cs-fg-2);
+      margin-bottom: 10px;
+    }
+    .subtitle-bar b {
+      color: var(--cs-fg);
+      font-weight: 600;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 20px;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      padding: 7px 2px 9px 2px;
+      font-family: var(--cs-font);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--cs-fg-2);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab-btn:hover {
+      color: var(--cs-fg);
+    }
+    .tab-btn.active {
+      color: var(--cs-fg);
+      font-weight: 700;
+      border-bottom-color: var(--cs-primary);
+    }
+    .tab-count {
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: var(--cs-surface);
+      color: var(--cs-fg-2);
+      font-weight: 600;
+    }
+    .tab-btn.active .tab-count {
+      background: var(--cs-blue-bg);
+      color: var(--cs-blue);
+    }
+
+    /* Main Scroll Area */
+    .main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 16px 28px 16px;
+    }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+    .badge-model { background: var(--cs-blue-bg); color: var(--cs-blue); }
+    .badge-effort { background: var(--cs-purple-bg); color: var(--cs-purple); }
+    .badge-working { background: var(--cs-amber-bg); color: var(--cs-amber); }
+    .badge-done { background: var(--cs-green-bg); color: var(--cs-green); }
+    .badge-failed { background: var(--cs-red-bg); color: var(--cs-red); }
+    .badge-waiting {
+      background: var(--cs-surface);
+      color: var(--cs-fg-2);
+      border: 1px solid var(--cs-border);
+    }
+
+    /* Toolbar / Form Controls */
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      align-items: center;
+    }
+    .search-input, .select-input, .text-input {
+      background-color: var(--cs-input-bg);
+      border: 1px solid var(--cs-border-strong);
+      color: var(--cs-fg);
+      font-family: var(--cs-font);
+      border-radius: 7px;
+      padding: 6px 10px;
+      font-size: 12.5px;
+      outline: none;
+    }
+    .select-input option {
+      background-color: var(--cs-bg);
+      color: var(--cs-fg);
+    }
+    .search-input { flex: 1; }
+    .search-input::placeholder, .text-input::placeholder {
+      color: var(--cs-fg-muted);
+    }
+    .search-input:focus, .select-input:focus, .text-input:focus {
+      border-color: var(--cs-primary);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--cs-primary) 22%, transparent);
+    }
+
+    .btn {
+      background: var(--cs-surface);
+      border: 1px solid var(--cs-border-strong);
+      color: var(--cs-fg);
+      font-family: var(--cs-font);
+      border-radius: 7px;
+      padding: 6px 11px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .btn:hover {
+      border-color: var(--cs-primary);
+    }
+    .btn-primary {
+      background: var(--cs-primary);
+      border-color: var(--cs-primary);
+      color: var(--cs-primary-fg);
+    }
+    .btn-primary:hover { opacity: 0.92; }
+    .btn-danger {
+      color: var(--cs-red);
+      border-color: color-mix(in srgb, var(--cs-red) 40%, var(--cs-border));
+      background: var(--cs-red-bg);
+    }
+
+    /* Board Feed */
+    .feed-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .post-card {
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--cs-border);
+      background: var(--cs-surface);
+    }
+    .post-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+    }
+    .post-route {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      font-size: 12.5px;
+    }
+    .avatar-dot {
+      width: 19px;
+      height: 19px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      color: #fff;
+      background: #475569;
+    }
+    .avatar-dot.coord { background: #0284c7; }
+    .avatar-dot.worker { background: #16a34a; }
+    .avatar-dot.verifier { background: #7c3aed; }
+
+    .actor-from { font-weight: 700; color: var(--cs-fg); }
+    .actor-arrow { color: var(--cs-fg-muted); font-weight: 600; }
+    .actor-to { color: var(--cs-blue); font-weight: 600; }
+    .post-meta {
+      font-size: 11.5px;
+      color: var(--cs-fg-2);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .post-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-bottom: 8px;
+    }
+    .post-body {
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 12.5px;
+      line-height: 1.55;
+      color: var(--cs-fg);
+      background: var(--cs-bg);
+      padding: 9px 11px;
+      border-radius: 7px;
+      border: 1px solid var(--cs-border);
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    /* Overview & Member Cards */
+    .grid-stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .stat-card {
+      padding: 11px 13px;
+      border-radius: 9px;
+      border: 1px solid var(--cs-border);
+      background: var(--cs-surface);
+    }
+    .stat-label { font-size: 12px; color: var(--cs-fg-2); font-weight: 500; }
+    .stat-value { font-size: 16px; font-weight: 700; color: var(--cs-fg); margin-top: 3px; }
+
+    .member-card {
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--cs-border);
+      background: var(--cs-surface);
+      margin-bottom: 10px;
+    }
+    .member-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .member-name {
+      font-weight: 700;
+      font-size: 13.5px;
+      color: var(--cs-fg);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .log-box {
+      margin-top: 8px;
+      padding: 8px 10px;
+      border-radius: 7px;
+      background: #0f172a;
+      color: #f1f5f9;
+      font-family: var(--cs-mono);
+      font-size: 11.5px;
+      white-space: pre-wrap;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+
+    /* Config Form */
+    .config-section {
+      padding: 13px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--cs-border);
+      background: var(--cs-surface);
+      margin-bottom: 12px;
+    }
+    .config-title {
+      font-weight: 700;
+      font-size: 13.5px;
+      color: var(--cs-fg);
+      margin: 0 0 11px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .form-field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .form-field label {
+      font-size: 12px;
+      color: var(--cs-fg-2);
+      font-weight: 600;
+    }
+    .toggle-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 9px 0;
+      border-top: 1px solid var(--cs-border);
+    }
+    .toggle-info { flex: 1; }
+    .toggle-title { font-weight: 600; font-size: 12.5px; color: var(--cs-fg); }
+    .toggle-desc { font-size: 11.5px; color: var(--cs-fg-2); margin-top: 2px; }
+
+    .preset-item {
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid var(--cs-border);
+      background: var(--cs-bg);
+      margin-bottom: 8px;
+    }
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 1.3fr 1fr 1.1fr auto;
+      gap: 6px;
+      align-items: center;
+    }
+
+    code {
+      font-family: var(--cs-mono);
+      background: color-mix(in srgb, var(--cs-fg) 9%, var(--cs-bg));
+      color: var(--cs-fg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 11.5px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 32px 16px;
+      color: var(--cs-fg-2);
+      border: 1px dashed var(--cs-border-strong);
+      border-radius: 10px;
+      background: var(--cs-surface);
+    }
+    .dirty-bar {
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 9px 12px;
+      border-radius: 9px;
+      background: var(--cs-amber-bg);
+      color: var(--cs-fg);
+      border: 1px solid var(--cs-amber);
+      font-size: 12.5px;
+      font-weight: 600;
+      z-index: 40;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+    }
+    .dirty-bar.show { display: flex; }
+    .toast {
+      position: fixed;
+      bottom: 14px;
+      right: 16px;
+      background: #15803d;
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      display: none;
+      z-index: 50;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-top">
+        <h1 id="ui-swarm-title" class="swarm-title">Codex Swarm 协作看板</h1>
+        <span class="live-pill" title="每 1.5 秒自动同步最新子 Agent 状态">
+          <span class="live-dot"></span><span>实时</span>
+        </span>
+      </div>
+      <div id="ui-subtitle" class="subtitle-bar"></div>
+      <nav class="tabs" role="tablist">
+        <button class="tab-btn" data-tab="overview">概览</button>
+        <button class="tab-btn active" data-tab="board">看板 <span id="cnt-board" class="tab-count">0</span></button>
+        <button class="tab-btn" data-tab="members">成员 <span id="cnt-members" class="tab-count">0</span></button>
+        <button class="tab-btn" data-tab="graph">关系图</button>
+        <button class="tab-btn" data-tab="config">子Agent配置</button>
+      </nav>
+    </header>
+
+    <main class="main">
+      <!-- 1. 概览 (Overview) -->
+      <section id="tab-overview" class="tab-panel">
+        <div class="grid-stats">
+          <div class="stat-card">
+            <div class="stat-label">默认 Worker 模型 / 思考强度</div>
+            <div id="ov-worker-model" class="stat-value" style="font-size:14px;">-</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Verifier 审查模型 / 思考强度</div>
+            <div id="ov-verifier-model" class="stat-value" style="font-size:14px;">-</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">活跃 / 已完成子 Agent</div>
+            <div id="ov-member-counts" class="stat-value">0 / 0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">桌面版防污染 (--ephemeral)</div>
+            <div id="ov-ephemeral" class="stat-value" style="font-size:14px; color: var(--cs-green);">已开启 ✓</div>
+          </div>
+        </div>
+
+        <div class="config-section">
+          <div class="config-title">
+            <span>快速在当前会话发起 `/codex-swarm` 任务</span>
+          </div>
+          <div class="form-field" style="margin-bottom:8px;">
+            <label>任务描述（将连同当前选定的子 Agent 模型 & 思考强度一起发送给统筹 Agent）</label>
+            <textarea id="quick-task-input" class="text-input" rows="3" placeholder="例如：帮我把当前项目拆成后端接口、前端页面和单元测试三个子 Agent 并行完成..."></textarea>
+          </div>
+          <div style="display:flex; gap:8px; justify-content:flex-end;">
+            <button id="btn-send-swarm" class="btn btn-primary">发送 `/codex-swarm` 到当前对话</button>
+          </div>
+        </div>
+
+        <div class="config-section">
+          <div class="config-title"><span>使用说明</span></div>
+          <div style="font-size:12.5px; color:var(--cs-fg-2); line-height:1.65;">
+            1. <b>仅在按需唤出时生效</b>：平时聊天不会强制调用 Codex；只有当你在输入框键入 <code>/codex-swarm</code>（或点击上方按钮）时，主 Agent（Neon/Argon）才会进入统筹模式。<br>
+            2. <b>两种指定模型与思考强度的方式</b>：<br>
+            &nbsp;&nbsp;• 直接在「<b>子Agent配置</b>」标签页选好每个角色的默认模型与推理强度（<code>low</code> ~ <code>ultra</code>）；<br>
+            &nbsp;&nbsp;• 或者在聊天唤出 <code>/codex-swarm</code> 时直接口头交代（例如：<i>“子agent用 gpt-5.6-terra 思考强度 ultra，verifier 用 o3”</i>），口头指定优先。<br>
+            3. <b>不弄乱 Codex 桌面版会话</b>：开启无痕模式（<code>--ephemeral</code>）后，子 Agent 的碎片任务不会写入 Codex 桌面版左侧历史列表，所有进度统一在此看板展示。
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. 看板 (Board) -->
+      <section id="tab-board" class="tab-panel active">
+        <div class="toolbar">
+          <input id="board-search" type="search" class="search-input" placeholder="搜索看板消息、文件或子 Agent...">
+          <select id="board-filter-actor" class="select-input">
+            <option value="">全部成员</option>
+          </select>
+          <button id="btn-clear-board" class="btn btn-danger" title="清空当前看板消息与已完成成员记录">清空看板</button>
+        </div>
+        <div id="board-feed" class="feed-list"></div>
+      </section>
+
+      <!-- 3. 成员 (Members) -->
+      <section id="tab-members" class="tab-panel">
+        <div id="members-list"></div>
+      </section>
+
+      <!-- 4. 关系图 (Graph) -->
+      <section id="tab-graph" class="tab-panel">
+        <div class="config-section" style="padding:12px;">
+          <div class="config-title" style="margin-bottom:6px;">
+            <span>子 Agent 网状自治与交接拓扑图 (@mention Graph)</span>
+            <span style="font-size:11.5px; font-weight:500; color:var(--cs-fg-2);">实时反映看板点对点呼叫与互审流向</span>
+          </div>
+          <div id="graph-canvas" style="width:100%; overflow:hidden; border-radius:8px; background:var(--cs-bg); border:1px solid var(--cs-border); text-align:center;"></div>
+          <div id="graph-edges" style="margin-top:10px;"></div>
+        </div>
+      </section>
+
+      <!-- 5. 子Agent配置 (Config) -->
+      <section id="tab-config" class="tab-panel">
+        <div class="config-section">
+          <div class="config-title">
+            <span>全局默认模型与推理思考强度</span>
+            <button id="btn-save-config" class="btn btn-primary">保存配置</button>
+          </div>
+
+          <div class="form-row">
+            <div class="form-field">
+              <label>默认执行子 Agent (Worker) 模型</label>
+              <select id="cfg-default-model" class="select-input"></select>
+            </div>
+            <div class="form-field">
+              <label>默认 Worker 推理思考强度</label>
+              <select id="cfg-default-effort" class="select-input">
+                <option value="low">low (极速)</option>
+                <option value="medium">medium (均衡)</option>
+                <option value="high">high (高强度推理)</option>
+                <option value="xhigh">xhigh (超高强度)</option>
+                <option value="max">max (最大深度)</option>
+                <option value="ultra">ultra (极限深度)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-field">
+              <label>默认审查官 (Verifier / Review) 模型</label>
+              <select id="cfg-verifier-model" class="select-input"></select>
+            </div>
+            <div class="form-field">
+              <label>默认审查官推理思考强度</label>
+              <select id="cfg-verifier-effort" class="select-input">
+                <option value="low">low (极速)</option>
+                <option value="medium">medium (均衡)</option>
+                <option value="high">high (高强度推理)</option>
+                <option value="xhigh">xhigh (超高强度)</option>
+                <option value="max">max (最大深度)</option>
+                <option value="ultra">ultra (极限深度)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-field">
+              <label>默认沙箱权限 (-s)</label>
+              <select id="cfg-default-sandbox" class="select-input">
+                <option value="workspace-write">workspace-write (推荐：允许改工作区代码)</option>
+                <option value="read-only">read-only (只读调研/审查)</option>
+                <option value="danger-full-access">danger-full-access (完全权限)</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>运行环境 (Windows / WSL)</label>
+              <select id="cfg-default-runtime" class="select-input">
+                <option value="auto">auto (根据项目路径自动选择 Windows 或 WSL)</option>
+                <option value="windows">Windows 原生 (codex.exe 0.171.0)</option>
+                <option value="wsl">WSL Ubuntu (codex 0.163.0)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-title">子 Agent 自治互审闭环 (<code>@worker ⇄ @verifier</code> 自动交接与打回重修)</div>
+              <div class="toggle-desc">开启后，Worker 写完代码直接自动唤醒 <code>@verifier</code> 核验；若检出问题直接打回给 Worker 重修（全程在后台用本地 Codex 完成，不唤醒主脑、不耗 Neon 额度），直到全部 PASS 再汇报给主脑。</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px; margin-top:4px;">
+              <select id="cfg-max-rounds" class="select-input" style="padding:3px 6px; font-size:11.5px;" title="最大自动互审打回轮数">
+                <option value="1">最多 1 轮</option>
+                <option value="2">最多 2 轮</option>
+                <option value="3" selected>最多 3 轮</option>
+                <option value="4">最多 4 轮</option>
+                <option value="5">最多 5 轮</option>
+              </select>
+              <input type="checkbox" id="cfg-auto-verify" checked style="width:17px; height:17px;">
+            </div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-title">无痕子 Agent 模式 (<code>--ephemeral</code>，防污染 Codex 桌面版)</div>
+              <div class="toggle-desc">开启后，Codex CLI 执行子任务不会写入 Codex 桌面版左侧会话历史，避免桌面版会话列表杂乱。</div>
+            </div>
+            <input type="checkbox" id="cfg-ephemeral" checked style="width:17px; height:17px; margin-top:4px;">
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-title">默认开启 Git Worktree 隔离 (<code>--worktree</code>)</div>
+              <div class="toggle-desc">多个子 Agent 同时修改同一 Git 仓库重叠文件时，为每个子 Agent 自动创建独立 Git Worktree。</div>
+            </div>
+            <input type="checkbox" id="cfg-worktree" style="width:17px; height:17px; margin-top:4px;">
+          </div>
+        </div>
+
+        <div class="config-section">
+          <div class="config-title">
+            <span>子 Agent 角色预设（按名字自动匹配模型与思考强度）</span>
+            <div style="display:flex; gap:6px;">
+              <button id="btn-sync-presets" class="btn" title="将上方设置的默认 Worker / Verifier 模型与思考强度一键同步到下方所有预设">同步上方默认到预设</button>
+              <button id="btn-add-preset" class="btn">+ 新增预设角色</button>
+            </div>
+          </div>
+          <div id="presets-container"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="dirty-bar" class="dirty-bar">
+    <span>⚠ 有未保存的修改（保存后子 Agent 才会使用）</span>
+    <button id="btn-save-dirty" class="btn btn-primary">保存配置</button>
+  </div>
+  <div id="toast" class="toast">已保存配置</div>
+
+  <script>
+    // ---------- Live Host Theme & Font Sync ----------
+    // Detects whether Antigravity's --background is light or dark whenever
+    // preload.js receives a `theme-change` event from the host window.
+    function syncHostTheme() {
+      const probe = document.createElement('span');
+      probe.style.cssText = 'position:absolute;visibility:hidden;color:var(--background, #f7f7f8)';
+      document.documentElement.appendChild(probe);
+      const c = getComputedStyle(probe).color;
+      probe.remove();
+      const nums = (c.match(/[\d.]+/g) || []).map(Number);
+      if (nums.length >= 3) {
+        const scale = c.startsWith('color(') ? 1 : 255;
+        const [r, g, b] = nums.slice(0, 3).map((v) => v / scale);
+        const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        const theme = lum < 0.5 ? 'dark' : 'light';
+        if (document.documentElement.dataset.theme !== theme) {
+          document.documentElement.dataset.theme = theme;
+        }
+      }
+      // Keep body styles synced with host variables
+      if (document.body) {
+        document.body.style.background = 'var(--cs-bg)';
+        document.body.style.color = 'var(--cs-fg)';
+        document.body.style.fontFamily = 'var(--cs-font)';
+      }
+    }
+
+    syncHostTheme();
+    new MutationObserver(syncHostTheme).observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['style']
+    });
+    window.addEventListener('message', (e) => {
+      if (e.data?.type === 'theme-change') {
+        requestAnimationFrame(syncHostTheme);
+      }
+    });
+
+    const EFFORT_OPTIONS = ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
+    const SANDBOX_OPTIONS = ['workspace-write', 'read-only', 'danger-full-access'];
+
+    let state = {
+      settings: null,
+      models: [],
+      members: [],
+      messages: []
+    };
+    let configDirty = false;
+
+    function apiFetch(url, options = {}) {
+      if (window.sidecar && typeof window.sidecar.fetch === 'function') {
+        return window.sidecar.fetch(url, options);
+      }
+      return fetch(url, {
+        ...options,
+        headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }
+      });
+    }
+
+    function showToast(text) {
+      const el = document.getElementById('toast');
+      el.textContent = text;
+      el.style.display = 'block';
+      setTimeout(() => { el.style.display = 'none'; }, 2000);
+    }
+
+    // Tab switching
+    document.querySelectorAll('.tab-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach((p) => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function formatTime(iso) {
+      if (!iso) return '';
+      try {
+        const d = new Date(iso);
+        return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      } catch {
+        return iso;
+      }
+    }
+
+    function populateModelSelect(selectEl, selectedValue) {
+      const currentVal = selectedValue || selectEl.value || 'gpt-5.6-sol';
+      const models = state.models.length ? state.models : [{ slug: 'gpt-5.6-sol', displayName: 'GPT-5.6-Sol' }];
+      const slugs = new Set(models.map((m) => m.slug));
+      let html = models
+        .map((m) => `<option value="${escapeHtml(m.slug)}">${escapeHtml(m.displayName || m.slug)} (${escapeHtml(m.slug)})</option>`)
+        .join('');
+      if (currentVal && !slugs.has(currentVal)) {
+        html = `<option value="${escapeHtml(currentVal)}">${escapeHtml(currentVal)}</option>` + html;
+      }
+      selectEl.innerHTML = html;
+      selectEl.value = currentVal;
+    }
+
+    function renderConfigForm() {
+      if (!state.settings || configDirty) return;
+      const s = state.settings;
+      populateModelSelect(document.getElementById('cfg-default-model'), s.defaultModel);
+      document.getElementById('cfg-default-effort').value = s.defaultReasoningEffort || 'high';
+      populateModelSelect(document.getElementById('cfg-verifier-model'), s.verifierModel || s.defaultModel);
+      document.getElementById('cfg-verifier-effort').value = s.verifierReasoningEffort || 'xhigh';
+      document.getElementById('cfg-default-sandbox').value = s.defaultSandbox || 'workspace-write';
+      document.getElementById('cfg-default-runtime').value = s.defaultRuntime || 'auto';
+      document.getElementById('cfg-auto-verify').checked = s.autoVerify !== false;
+      document.getElementById('cfg-max-rounds').value = String(s.maxRounds || 3);
+      document.getElementById('cfg-ephemeral').checked = s.ephemeral !== false;
+      document.getElementById('cfg-worktree').checked = Boolean(s.worktree);
+      renderPresetsEditor(s.presets || []);
+    }
+
+    function renderPresetsEditor(presets) {
+      const container = document.getElementById('presets-container');
+      const models = state.models.length ? state.models : [{ slug: 'gpt-5.6-sol', displayName: 'GPT-5.6-Sol' }];
+      container.innerHTML = presets.map((p, idx) => {
+        const modelOpts = models.map((m) =>
+          `<option value="${escapeHtml(m.slug)}" ${m.slug === p.model ? 'selected' : ''}>${escapeHtml(m.slug)}</option>`
+        ).join('');
+        const effortOpts = EFFORT_OPTIONS.map((ef) =>
+          `<option value="${ef}" ${ef === p.reasoningEffort ? 'selected' : ''}>${ef}</option>`
+        ).join('');
+        const sandboxOpts = SANDBOX_OPTIONS.map((sb) =>
+          `<option value="${sb}" ${sb === p.sandbox ? 'selected' : ''}>${sb}</option>`
+        ).join('');
+
+        return `
+          <div class="preset-item" data-idx="${idx}">
+            <div class="preset-grid">
+              <input type="text" class="text-input p-name" value="${escapeHtml(p.name)}" placeholder="角色名 (如 coder)">
+              <select class="select-input p-model">${modelOpts}</select>
+              <select class="select-input p-effort">${effortOpts}</select>
+              <select class="select-input p-sandbox">${sandboxOpts}</select>
+              <button class="btn btn-danger p-del" data-idx="${idx}" title="删除预设">✕</button>
+            </div>
+            <div style="margin-top:6px;">
+              <input type="text" class="text-input p-desc" style="width:100%;" value="${escapeHtml(p.desc || '')}" placeholder="职责说明（例如：负责核心业务代码与单测）">
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      container.querySelectorAll('select').forEach((el) => {
+        el.addEventListener('change', () => {
+          configDirty = true;
+          saveConfig();
+        });
+      });
+      container.querySelectorAll('input').forEach((el) => {
+        el.addEventListener('input', () => { configDirty = true; });
+        el.addEventListener('change', () => {
+          configDirty = true;
+          saveConfig();
+        });
+      });
+      container.querySelectorAll('.p-del').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const i = Number(btn.dataset.idx);
+          const current = collectPresetsFromDom();
+          current.splice(i, 1);
+          configDirty = true;
+          renderPresetsEditor(current);
+          saveConfig();
+        });
+      });
+    }
+
+    function collectPresetsFromDom() {
+      const items = document.querySelectorAll('#presets-container .preset-item');
+      const list = [];
+      items.forEach((item) => {
+        const name = item.querySelector('.p-name').value.trim();
+        if (!name) return;
+        list.push({
+          name,
+          role: name.includes('verifier') || name.includes('review') ? 'verifier' : 'worker',
+          model: item.querySelector('.p-model').value,
+          reasoningEffort: item.querySelector('.p-effort').value,
+          sandbox: item.querySelector('.p-sandbox').value,
+          desc: item.querySelector('.p-desc').value.trim()
+        });
+      });
+      return list;
+    }
+
+    document.getElementById('btn-add-preset').addEventListener('click', () => {
+      const current = collectPresetsFromDom();
+      current.push({
+        name: `worker-${current.length + 1}`,
+        role: 'worker',
+        model: document.getElementById('cfg-default-model').value || 'gpt-6.1-terra',
+        reasoningEffort: document.getElementById('cfg-default-effort').value || 'high',
+        sandbox: 'workspace-write',
+        desc: '自定义执行子 Agent'
+      });
+      configDirty = true;
+      renderPresetsEditor(current);
+      saveConfig();
+    });
+
+    document.getElementById('btn-sync-presets').addEventListener('click', () => {
+      const wModel = document.getElementById('cfg-default-model').value;
+      const wEffort = document.getElementById('cfg-default-effort').value;
+      const vModel = document.getElementById('cfg-verifier-model').value;
+      const vEffort = document.getElementById('cfg-verifier-effort').value;
+      const current = collectPresetsFromDom().map((p) => {
+        const isV = p.role === 'verifier' || p.name.includes('verifier') || p.name.includes('review') || p.sandbox === 'read-only';
+        return {
+          ...p,
+          model: isV ? vModel : wModel,
+          reasoningEffort: isV ? vEffort : (p.name.includes('fast') ? 'medium' : wEffort)
+        };
+      });
+      configDirty = true;
+      renderPresetsEditor(current);
+      saveConfig();
+    });
+
+    ['cfg-default-model', 'cfg-default-effort', 'cfg-verifier-model', 'cfg-verifier-effort', 'cfg-default-sandbox', 'cfg-default-runtime', 'cfg-auto-verify', 'cfg-max-rounds', 'cfg-ephemeral', 'cfg-worktree'].forEach((id) => {
+      document.getElementById(id).addEventListener('change', () => {
+        configDirty = true;
+        saveConfig();
+      });
+    });
+
+    async function saveConfig() {
+      const payload = {
+        defaultModel: document.getElementById('cfg-default-model').value,
+        defaultReasoningEffort: document.getElementById('cfg-default-effort').value,
+        verifierModel: document.getElementById('cfg-verifier-model').value,
+        verifierReasoningEffort: document.getElementById('cfg-verifier-effort').value,
+        defaultSandbox: document.getElementById('cfg-default-sandbox').value,
+        defaultRuntime: document.getElementById('cfg-default-runtime').value,
+        autoVerify: document.getElementById('cfg-auto-verify').checked,
+        maxRounds: Number(document.getElementById('cfg-max-rounds').value) || 3,
+        ephemeral: document.getElementById('cfg-ephemeral').checked,
+        worktree: document.getElementById('cfg-worktree').checked,
+        presets: collectPresetsFromDom()
+      };
+      const res = await apiFetch('/api/settings', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.ok) {
+        state.settings = data.settings;
+        configDirty = false;
+        renderHeaderAndOverview();
+        showToast('✓ 已保存子 Agent 模型与思考强度配置');
+      }
+    }
+
+    document.getElementById('btn-save-config').addEventListener('click', saveConfig);
+    document.getElementById('btn-save-dirty').addEventListener('click', saveConfig);
+    setInterval(() => {
+      document.getElementById('dirty-bar').classList.toggle('show', configDirty);
+    }, 300);
+
+    function renderHeaderAndOverview() {
+      const s = state.settings || {};
+      document.getElementById('ui-swarm-title').textContent = s.swarmTitle || 'Codex Swarm 协作看板';
+      document.getElementById('ui-subtitle').innerHTML = `
+        <span>Worker: <b>${escapeHtml(s.defaultModel || 'gpt-5.6-sol')}</b> (${escapeHtml(s.defaultReasoningEffort || 'high')})</span>
+        <span>·</span>
+        <span>Verifier: <b>${escapeHtml(s.verifierModel || 'gpt-5.6-sol')}</b> (${escapeHtml(s.verifierReasoningEffort || 'xhigh')})</span>
+        <span>·</span>
+        <span>${s.ephemeral !== false ? '无痕防污染 (--ephemeral)' : '持久化会话'}</span>
+        ${(s.presets || []).length ? `<div style="flex-basis:100%;">预设: ${(s.presets || []).map((p) => `<b>${escapeHtml(p.name)}</b> ${escapeHtml(p.model)}(${escapeHtml(p.reasoningEffort)})`).join(' · ')}</div>` : ''}
+      `;
+
+      document.getElementById('ov-worker-model').textContent = `${s.defaultModel || 'gpt-5.6-sol'} · ${s.defaultReasoningEffort || 'high'}`;
+      document.getElementById('ov-verifier-model').textContent = `${s.verifierModel || 'gpt-5.6-sol'} · ${s.verifierReasoningEffort || 'xhigh'}`;
+      const workingCnt = state.members.filter((m) => m.status === 'working').length;
+      const doneCnt = state.members.filter((m) => m.status === 'done').length;
+      document.getElementById('ov-member-counts').textContent = `${workingCnt} 运行中 / ${doneCnt} 已完成`;
+      const ephEl = document.getElementById('ov-ephemeral');
+      if (s.ephemeral !== false) {
+        ephEl.textContent = '已开启 ✓ (不污染桌面版)';
+        ephEl.style.color = 'var(--cs-green)';
+      } else {
+        ephEl.textContent = '未开启 (写入桌面版会话)';
+        ephEl.style.color = 'var(--cs-amber)';
+      }
+    }
+
+    function toListArray(val) {
+      if (Array.isArray(val)) return val;
+      if (typeof val === 'string' && val.trim()) return val.split(',').map((s) => s.trim()).filter(Boolean);
+      return [];
+    }
+
+    function renderBoard() {
+      const msgs = state.messages || [];
+      document.getElementById('cnt-board').textContent = String(msgs.length);
+
+      const filterEl = document.getElementById('board-filter-actor');
+      const currentActor = filterEl.value;
+      const actors = new Set(['coordinator']);
+      msgs.forEach((m) => {
+        if (m.from) actors.add(m.from);
+        toListArray(m.to).forEach((t) => actors.add(t));
+      });
+      filterEl.innerHTML = `<option value="">全部成员</option>` +
+        [...actors].map((a) => `<option value="${escapeHtml(a)}">@${escapeHtml(a)}</option>`).join('');
+      filterEl.value = currentActor;
+
+      const q = document.getElementById('board-search').value.trim().toLowerCase();
+      const filtered = msgs.filter((m) => {
+        const recipients = toListArray(m.to);
+        if (currentActor && m.from !== currentActor && !recipients.includes(currentActor)) {
+          return false;
+        }
+        if (q) {
+          const hay = `${m.from} ${recipients.join(' ')} ${m.text} ${m.model} ${m.workdir}`.toLowerCase();
+          return hay.includes(q);
+        }
+        return true;
+      });
+
+      const feedEl = document.getElementById('board-feed');
+      if (!filtered.length) {
+        feedEl.innerHTML = `
+          <div class="empty-state">
+            <div style="font-weight:700; margin-bottom:6px; color:var(--cs-fg);">看板暂无子 Agent 协作记录</div>
+            <div style="font-size:12px;">当你在左侧聊天输入 <code>/codex-swarm</code> 下发任务时，统筹者（Coordinator）与各个本地 Codex 子 Agent 的派单、模型参数、思考强度和完成汇报都会实时显示在这里。</div>
+          </div>
+        `;
+        return;
+      }
+
+      feedEl.innerHTML = filtered.map((m) => {
+        const isCoord = m.from === 'coordinator';
+        const isVerifier = m.role === 'verifier' || String(m.from || '').includes('verifier');
+        const avatarClass = isCoord ? 'coord' : (isVerifier ? 'verifier' : 'worker');
+        const avatarLetter = isCoord ? 'C' : (isVerifier ? 'V' : 'W');
+        const recipients = toListArray(m.to);
+        const toList = (recipients.length ? recipients : ['all']).map((t) => `@${escapeHtml(t)}`).join(' ');
+
+        let statusBadge = '';
+        if (m.status === 'working' || m.type === 'assign') {
+          statusBadge = `<span class="badge badge-working">● 派单执行</span>`;
+        } else if (m.status === 'done' || m.type === 'done') {
+          statusBadge = `<span class="badge badge-done">✓ 已完成${m.elapsedSec ? ' · ' + m.elapsedSec + 's' : ''}</span>`;
+        } else if (m.status === 'failed') {
+          statusBadge = `<span class="badge badge-failed">✗ 执行异常</span>`;
+        }
+
+        const tags = [];
+        if (m.model) tags.push(`<span class="badge badge-model">模型: ${escapeHtml(m.model)}</span>`);
+        if (m.reasoningEffort) tags.push(`<span class="badge badge-effort">思考强度: ${escapeHtml(m.reasoningEffort)}</span>`);
+        if (m.sandbox) tags.push(`<span class="badge badge-waiting">${escapeHtml(m.sandbox)}</span>`);
+        if (m.runtime) tags.push(`<span class="badge badge-waiting">${escapeHtml(m.runtime)}</span>`);
+
+        return `
+          <div class="post-card">
+            <div class="post-header">
+              <div class="post-route">
+                <span class="avatar-dot ${avatarClass}">${avatarLetter}</span>
+                <span class="actor-from">@${escapeHtml(m.from)}</span>
+                <span class="actor-arrow">→</span>
+                <span class="actor-to">${toList}</span>
+                ${statusBadge}
+              </div>
+              <div class="post-meta">
+                <span>#${escapeHtml(m.seq)}</span>
+                <span>·</span>
+                <span>${formatTime(m.ts)}</span>
+              </div>
+            </div>
+            ${tags.length ? `<div class="post-tags">${tags.join('')}</div>` : ''}
+            <div class="post-body">${escapeHtml(m.text)}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderMembers() {
+      const members = state.members || [];
+      const presets = (state.settings && state.settings.presets) || [];
+      document.getElementById('cnt-members').textContent = String(members.length || presets.length);
+
+      const container = document.getElementById('members-list');
+      if (!members.length) {
+        container.innerHTML = `
+          <div style="margin-bottom:10px; font-size:12px; color:var(--cs-fg-2); font-weight:500;">当前暂无正在运行的子 Agent，以下为你已配置的预设子 Agent 阵容：</div>
+          ${presets.map((p) => `
+            <div class="member-card">
+              <div class="member-top">
+                <div class="member-name">
+                  <span class="avatar-dot ${p.role === 'verifier' ? 'verifier' : 'worker'}">${p.role === 'verifier' ? 'V' : 'W'}</span>
+                  <span>@${escapeHtml(p.name)}</span>
+                </div>
+                <span class="badge badge-waiting">待命 (预设)</span>
+              </div>
+              <div class="post-tags">
+                <span class="badge badge-model">模型: ${escapeHtml(p.model)}</span>
+                <span class="badge badge-effort">思考强度: ${escapeHtml(p.reasoningEffort)}</span>
+                <span class="badge badge-waiting">沙箱: ${escapeHtml(p.sandbox)}</span>
+              </div>
+              <div style="font-size:12px; color:var(--cs-fg-2);">${escapeHtml(p.desc || '')}</div>
+            </div>
+          `).join('')}
+        `;
+        return;
+      }
+
+      container.innerHTML = members.map((m) => {
+        let badge = `<span class="badge badge-waiting">${escapeHtml(m.status || 'waiting')}</span>`;
+        if (m.status === 'working') badge = `<span class="badge badge-working">● 执行中 (Working)</span>`;
+        else if (m.status === 'done') badge = `<span class="badge badge-done">✓ 已完成 (${m.elapsedSec || 0}s)</span>`;
+        else if (m.status === 'failed') badge = `<span class="badge badge-failed">✗ 失败 (Exit ${m.exitCode})</span>`;
+
+        return `
+          <div class="member-card">
+            <div class="member-top">
+              <div class="member-name">
+                <span class="avatar-dot ${m.role === 'verifier' ? 'verifier' : 'worker'}">${m.role === 'verifier' ? 'V' : 'W'}</span>
+                <span>@${escapeHtml(m.name)}</span>
+              </div>
+              ${badge}
+            </div>
+            <div class="post-tags">
+              <span class="badge badge-model">模型: ${escapeHtml(m.model || '-')}</span>
+              <span class="badge badge-effort">思考强度: ${escapeHtml(m.reasoningEffort || '-')}</span>
+              <span class="badge badge-waiting">${escapeHtml(m.runtime || 'Windows')}</span>
+              <span class="badge badge-waiting">${escapeHtml(m.sandbox || 'workspace-write')}</span>
+            </div>
+            ${m.workdir ? `<div style="font-size:11.5px; color:var(--cs-fg-2); margin-bottom:4px;">工作目录: <code>${escapeHtml(m.workdir)}</code></div>` : ''}
+            ${m.brief ? `<div style="font-size:12px; color:var(--cs-fg); margin-top:4px;"><b>任务摘要:</b> ${escapeHtml(m.brief.slice(0, 220))}${m.brief.length > 220 ? '...' : ''}</div>` : ''}
+            ${m.liveLog ? `<div class="log-box">${escapeHtml(m.liveLog)}</div>` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    document.getElementById('board-search').addEventListener('input', renderBoard);
+    document.getElementById('board-filter-actor').addEventListener('change', renderBoard);
+
+    document.getElementById('btn-clear-board').addEventListener('click', async () => {
+      await apiFetch('/api/board/clear', { method: 'POST', body: '{}' });
+      await pollState();
+      showToast('已清空看板记录');
+    });
+
+    document.getElementById('btn-send-swarm').addEventListener('click', async () => {
+      const taskText = document.getElementById('quick-task-input').value.trim();
+      if (!taskText) {
+        showToast('请先输入任务描述');
+        return;
+      }
+      if (configDirty) {
+        await saveConfig();
+      }
+      const s = state.settings || {};
+      const msg = `/codex-swarm [配置参数: 默认Worker模型=${s.defaultModel}, 思考强度=${s.defaultReasoningEffort}; Verifier模型=${s.verifierModel}, 思考强度=${s.verifierReasoningEffort}; 无痕模式=${s.ephemeral !== false}]\n${taskText}`;
+      if (window.sidecar && window.sidecar.agent && typeof window.sidecar.agent.sendMessage === 'function') {
+        try {
+          await window.sidecar.agent.sendMessage(msg);
+          document.getElementById('quick-task-input').value = '';
+          showToast('✓ 已发送 /codex-swarm 任务到当前会话');
+        } catch (err) {
+          showToast('发送失败: ' + err.message);
+        }
+      } else {
+        navigator.clipboard?.writeText(msg);
+        showToast('已复制 /codex-swarm 指令到剪贴板');
+      }
+    });
+
+    function renderGraph() {
+      const canvas = document.getElementById('graph-canvas');
+      const edgesBox = document.getElementById('graph-edges');
+      if (!canvas || !edgesBox) return;
+
+      const presets = (state.settings && state.settings.presets) || [];
+      const membersMap = new Map();
+      membersMap.set('coordinator', { name: 'coordinator', role: 'coordinator', status: 'active' });
+      membersMap.set('monitor', { name: 'monitor', role: 'monitor', status: 'active' });
+      presets.forEach((p) => {
+        membersMap.set(p.name, { name: p.name, role: p.role || 'worker', status: 'waiting', model: p.model, effort: p.reasoningEffort });
+      });
+      (state.members || []).forEach((m) => {
+        membersMap.set(m.name, { name: m.name, role: m.role || 'worker', status: m.status || 'waiting', model: m.model, effort: m.reasoningEffort });
+      });
+
+      const edgeCounts = new Map();
+      (state.messages || []).forEach((m) => {
+        const from = m.from || 'coordinator';
+        if (!membersMap.has(from)) membersMap.set(from, { name: from, role: 'worker', status: 'done' });
+        toListArray(m.to).forEach((to) => {
+          if (to === 'all') return;
+          if (!membersMap.has(to)) membersMap.set(to, { name: to, role: 'worker', status: 'waiting' });
+          const k = `${from}->${to}`;
+          const prev = edgeCounts.get(k) || { from, to, count: 0, lastSeq: 0 };
+          prev.count += 1;
+          if (Number(m.seq) > prev.lastSeq) prev.lastSeq = Number(m.seq);
+          edgeCounts.set(k, prev);
+        });
+      });
+
+      const nodes = [...membersMap.values()];
+      const W = 440, H = 290, cx = W / 2, cy = H / 2, R = 102;
+      const coords = new Map();
+      nodes.forEach((n, idx) => {
+        if (n.name === 'coordinator') {
+          coords.set(n.name, { x: cx, y: 38 });
+        } else {
+          const others = nodes.filter((x) => x.name !== 'coordinator');
+          const i = others.findIndex((x) => x.name === n.name);
+          const angle = Math.PI * 0.15 + (Math.PI * 0.7 * (i / Math.max(1, others.length - 1)));
+          coords.set(n.name, {
+            x: Math.round(cx + R * 1.35 * Math.cos(angle)),
+            y: Math.round(78 + R * 1.45 * Math.sin(angle))
+          });
+        }
+      });
+
+      let svgEdges = '';
+      for (const e of edgeCounts.values()) {
+        const p1 = coords.get(e.from);
+        const p2 = coords.get(e.to);
+        if (!p1 || !p2) continue;
+        const dx = p2.x - p1.x, dy = p2.y - p1.y;
+        const dist = Math.hypot(dx, dy) || 1;
+        const ux = dx / dist, uy = dy / dist;
+        const x1 = p1.x + ux * 24, y1 = p1.y + uy * 24;
+        const x2 = p2.x - ux * 26, y2 = p2.y - uy * 26;
+        const mx = (x1 + x2) / 2 - uy * 12, my = (y1 + y2) / 2 + ux * 12;
+        const isPeer = e.from !== 'coordinator' && e.to !== 'coordinator';
+        const strokeColor = isPeer ? 'var(--cs-purple)' : 'var(--cs-blue)';
+        svgEdges += `
+          <path d="M ${x1} ${y1} Q ${mx} ${my} ${x2} ${y2}" fill="none" stroke="${strokeColor}" stroke-width="2" marker-end="url(#arrow)" opacity="0.85"/>
+          <text x="${mx}" y="${my - 4}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--cs-fg)">#${e.lastSeq} (${e.count})</text>
+        `;
+      }
+
+      let svgNodes = '';
+      for (const n of nodes) {
+        const p = coords.get(n.name);
+        if (!p) continue;
+        let fill = '#16a34a';
+        if (n.name === 'coordinator') fill = '#0284c7';
+        else if (n.role === 'verifier' || n.name === 'verifier') fill = '#7c3aed';
+        else if (n.name === 'monitor') fill = '#d97706';
+
+        const ring = n.status === 'working'
+          ? `<circle cx="${p.x}" cy="${p.y}" r="24" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="4 3"/>`
+          : '';
+        svgNodes += `
+          ${ring}
+          <circle cx="${p.x}" cy="${p.y}" r="19" fill="${fill}"/>
+          <text x="${p.x}" y="${p.y + 4}" text-anchor="middle" font-size="11" font-weight="700" fill="#ffffff">${escapeHtml(n.name.slice(0, 2).toUpperCase())}</text>
+          <text x="${p.x}" y="${p.y + 33}" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--cs-fg)">@${escapeHtml(n.name)}</text>
+        `;
+      }
+
+      canvas.innerHTML = `
+        <svg viewBox="0 0 ${W} ${H}" width="100%" height="260" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" fill="var(--cs-blue)"/>
+            </marker>
+          </defs>
+          ${svgEdges}
+          ${svgNodes}
+        </svg>
+      `;
+
+      const edgesArr = [...edgeCounts.values()].sort((a, b) => b.lastSeq - a.lastSeq);
+      edgesBox.innerHTML = edgesArr.length
+        ? edgesArr.map((e) => `
+            <div style="display:flex; justify-content:space-between; padding:5px 8px; border-bottom:1px solid var(--cs-border); font-size:12px;">
+              <span><b>@${escapeHtml(e.from)}</b> → <b style="color:var(--cs-blue);">@${escapeHtml(e.to)}</b> ${e.from !== 'coordinator' && e.to !== 'coordinator' ? '<span class="badge badge-effort">子Agent点对点自治</span>' : ''}</span>
+              <span style="color:var(--cs-fg-2);">共 ${e.count} 次通信 · 最新 #${e.lastSeq}</span>
+            </div>
+          `).join('')
+        : `<div style="font-size:12px; color:var(--cs-fg-2); text-align:center;">暂无点对点消息边，派单后自动生成拓扑图</div>`;
+    }
+
+    let lastHtmlMtime = 0;
+    async function pollState() {
+      try {
+        const res = await apiFetch('/api/state');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.htmlMtime) {
+          if (lastHtmlMtime && data.htmlMtime !== lastHtmlMtime) {
+            window.location.reload();
+            return;
+          }
+          lastHtmlMtime = data.htmlMtime;
+        }
+        state = data;
+        renderHeaderAndOverview();
+        renderBoard();
+        renderMembers();
+        renderGraph();
+        renderConfigForm();
+      } catch (err) {
+        console.error('pollState error:', err);
+      }
+    }
+
+    pollState();
+    setInterval(pollState, 1500);
+  </script>
+</body>
+</html>

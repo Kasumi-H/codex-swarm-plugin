@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "codex-swarm-mcp": {
+      "command": "node",
+      "args": [
+        "${PLUGIN_ROOT}/mcp/codex-mcp-server.mjs"
+      ]
+    }
+  }
+}

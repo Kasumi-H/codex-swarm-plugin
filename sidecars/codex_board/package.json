@@ -1,0 +1,6 @@
+{
+  "name": "codex_board",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Codex Swarm Board and Subagent Configurator Sidecar"
+}
