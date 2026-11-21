@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { getDataDir } from '../runtime-config.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,7 +16,7 @@ const WORKER_SCRIPT_MJS = path.resolve(
   "scripts",
   "codex-worker.mjs"
 );
-const OUT_DIR = path.join(os.homedir(), ".gemini", "antigravity", "plugin_data", "codex-swarm");
+const OUT_DIR = getDataDir();
 
 function buildEnhancedPath() {
   const isWin = process.platform === "win32";
@@ -120,7 +121,7 @@ const TOOLS = [
         workdir: {
           type: "string",
           description:
-            "Absolute working directory path (e.g. /Users/<user>/project on macOS, /home/<user>/project on Linux, C:\\... on Windows, or \\\\wsl$\\Ubuntu\\... for WSL)."
+            "Absolute working directory path (e.g. /Users/<user>/project on macOS, /home/<user>/project on Linux, C:\\... on Windows, or \\\\wsl$\\Debian\\... for WSL)."
         },
         prompt: {
           type: "string",
@@ -141,7 +142,7 @@ const TOOLS = [
         },
         use_wsl: {
           type: "boolean",
-          description: "(Windows only) Force execution via WSL Ubuntu."
+          description: "(Windows only) Force execution via WSL."
         },
         model: {
           type: "string",
@@ -210,7 +211,7 @@ const TOOLS = [
         },
         use_wsl: {
           type: "boolean",
-          description: "(Windows only) Force execution via WSL Ubuntu."
+          description: "(Windows only) Force execution via WSL."
         }
       },
       required: ["workdir"]
@@ -258,7 +259,7 @@ const TOOLS = [
         },
         use_wsl: {
           type: "boolean",
-          description: "(Windows only) Force execution via WSL Ubuntu."
+          description: "(Windows only) Force execution via WSL."
         }
       },
       required: ["workdir", "prompt"]
@@ -437,21 +438,15 @@ async function handleToolCall(name, args = {}) {
   };
 }
 
-let useContentLengthFraming = false;
-
-function sendMessage(msg) {
-  const json = JSON.stringify(msg);
-  if (useContentLengthFraming) {
-    const byteLen = Buffer.byteLength(json, "utf8");
-    process.stdout.write(`Content-Length: ${byteLen}\r\n\r\n${json}`);
-  } else {
-    process.stdout.write(json + "\n");
-  }
-}
-
-async function handleJsonRpc(msg) {
+async function handleJsonRpc(msg, framed) {
   if (!msg || typeof msg !== "object") return;
   const { id, method, params } = msg;
+  const sendMessage = (response) => {
+    const json = JSON.stringify(response);
+    process.stdout.write(framed
+      ? `Content-Length: ${Buffer.byteLength(json, "utf8")}\r\n\r\n${json}`
+      : json + "\n");
+  };
 
   if (method === "initialize") {
     const clientVersion = params?.protocolVersion || "2024-11-05";
@@ -530,30 +525,24 @@ let buffer = Buffer.alloc(0);
 process.stdin.on("data", (chunk) => {
   buffer = Buffer.concat([buffer, chunk]);
   while (buffer.length > 0) {
-    const headerMatch = buffer
-      .toString("utf8", 0, Math.min(buffer.length, 100))
-      .match(/^Content-Length:\s*(\d+)\r?\n\r?\n/i);
-    if (headerMatch) {
-      useContentLengthFraming = true;
-      const headerByteLen = Buffer.byteLength(headerMatch[0], "utf8");
-      const bodyByteLen = parseInt(headerMatch[1], 10);
-      if (buffer.length < headerByteLen + bodyByteLen) {
-        break;
-      }
-      const bodyStr = buffer.toString("utf8", headerByteLen, headerByteLen + bodyByteLen);
-      buffer = buffer.subarray(headerByteLen + bodyByteLen);
-      try {
-        handleJsonRpc(JSON.parse(bodyStr));
-      } catch {}
-    } else {
-      const newlineIdx = buffer.indexOf(0x0a); // \n
-      if (newlineIdx === -1) break;
-      const line = buffer.toString("utf8", 0, newlineIdx).trim();
-      buffer = buffer.subarray(newlineIdx + 1);
-      if (!line) continue;
-      try {
-        handleJsonRpc(JSON.parse(line));
-      } catch {}
+    const newlineIdx = buffer.indexOf(0x0a);
+    if (newlineIdx === -1) break;
+    const line = buffer.toString("utf8", 0, newlineIdx).trim();
+    const length = line.match(/^Content-Length:[ \t]*(\d+)$/i);
+    let message = line;
+    let end = newlineIdx + 1;
+    if (length) {
+      const separator = buffer[newlineIdx - 1] === 0x0d ? "\r\n\r\n" : "\n\n";
+      const headerEnd = buffer.indexOf(separator, newlineIdx - (separator.length === 4 ? 1 : 0));
+      if (headerEnd === -1) break;
+      const start = headerEnd + separator.length;
+      end = start + Number(length[1]);
+      if (buffer.length < end) break;
+      message = buffer.toString("utf8", start, end);
     }
+    buffer = buffer.subarray(end);
+    try {
+      handleJsonRpc(JSON.parse(message), Boolean(length));
+    } catch {}
   }
 });

@@ -15,6 +15,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getDataDir, runtimeConfigName } from './runtime-config.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -42,11 +43,11 @@ const targetPluginDir = path.resolve(
   cli.targetDir || path.join(home, '.gemini', 'config', 'plugins', 'codex-swarm')
 );
 const targetDataDir = path.resolve(
-  cli.dataDir || path.join(home, '.gemini', 'antigravity', 'plugin_data', 'codex-swarm')
+  cli.dataDir || getDataDir(targetPluginDir)
 );
 const nodeCommand = process.execPath || 'node';
 
-const SKIP_ENTRIES = new Set(['.git', 'node_modules', '.DS_Store']);
+const SKIP_ENTRIES = new Set(['.git', 'node_modules', '.DS_Store', runtimeConfigName]);
 
 function copyRecursiveSync(src, dest) {
   const stat = fs.statSync(src);
@@ -205,6 +206,11 @@ if (!cli.dryRun) {
     };
     fs.writeFileSync(settingsPath, JSON.stringify(defaultSettings, null, 2) + '\n', 'utf8');
   }
+  fs.writeFileSync(
+    path.join(targetPluginDir, runtimeConfigName),
+    JSON.stringify({ dataDir: targetDataDir }, null, 2) + '\n',
+    'utf8'
+  );
 }
 console.log(`[5/5] ${cli.dryRun ? '[dry-run] Would initialize' : 'Initialized'} plugin_data/codex-swarm settings`);
 

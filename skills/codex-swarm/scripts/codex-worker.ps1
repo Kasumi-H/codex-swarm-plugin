@@ -81,6 +81,15 @@ $OutputEncoding = $utf8NoBom
 [Console]::InputEncoding = $utf8NoBom
 [Console]::OutputEncoding = $utf8NoBom
 
+if (-not $OutDir) {
+    $runtimeConfig = Join-Path $PSScriptRoot "..\..\..\runtime-config.json"
+    $OutDir = if (Test-Path $runtimeConfig) {
+        (Get-Content -LiteralPath $runtimeConfig -Raw -Encoding UTF8 | ConvertFrom-Json).dataDir
+    } else {
+        "$HOME\.gemini\antigravity\plugin_data\codex-swarm"
+    }
+}
+
 if (-not (Test-Path $OutDir)) {
     New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
 }
@@ -282,11 +291,11 @@ $effectiveAutoVerify = if ($NoAutoVerify.IsPresent -or $isVerifierRole -or ($Mod
 
 $effectiveMaxRounds = if ($MaxRounds -gt 0) { $MaxRounds } elseif ($uiSettings.maxRounds -gt 0) { [int]$uiSettings.maxRounds } else { 3 }
 
-$isWslTarget = $UseWsl.IsPresent -or ($uiSettings.defaultRuntime -eq "wsl") -or ($Workdir -match '^\\\\wsl') -or ($Workdir -match '^/')
-if ($uiSettings.defaultRuntime -eq "windows" -and -not $UseWsl.IsPresent -and $Workdir -notmatch '^\\\\wsl' -and $Workdir -notmatch '^/') {
-    $isWslTarget = $false
-}
-$runtimeLabel = if ($isWslTarget) { "WSL (Ubuntu)" } else { "Windows Native" }
+$wslUncPattern = '^\\\\wsl(?:\.localhost|\$)\\([^\\]+)(\\.*)?$'
+$wslDistro = if ($Workdir -match $wslUncPattern) { $Matches[1] }
+$isWslTarget = $UseWsl.IsPresent -or ($uiSettings.defaultRuntime -eq "wsl") -or $wslDistro -or ($Workdir -match '^/')
+$wslArgs = if ($wslDistro) { @('--distribution', $wslDistro, '--') } else { @('--') }
+$runtimeLabel = if (-not $isWslTarget) { "Windows Native" } elseif ($wslDistro) { "WSL ($wslDistro)" } else { "WSL (default)" }
 
 function Get-WindowsCodexPath {
     $extCandidates = Get-ChildItem "$HOME\.vscode\extensions\openai.chatgpt-*\bin\windows-x86_64\codex.exe" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending
@@ -306,11 +315,18 @@ function ConvertTo-WslPath([string]$winOrWslPath) {
     if ($winOrWslPath -match '^/') {
         return $winOrWslPath
     }
-    if ($winOrWslPath -match '^\\\\wsl(?:\.localhost|\$)\\[^\\]+(\\.*)$') {
-        return ($Matches[1] -replace '\\', '/')
+    if ($winOrWslPath -match $wslUncPattern) {
+        $pathDistro = $Matches[1]
+        $linuxPath = $Matches[2]
+        $activeDistro = if ($wslDistro) { $wslDistro } else { (wsl @wslArgs printenv WSL_DISTRO_NAME).Trim() }
+        if ($pathDistro -ne $activeDistro) {
+            throw "WSL path belongs to a different distribution: $winOrWslPath"
+        }
+        if (-not $linuxPath) { return '/' }
+        return ($linuxPath -replace '\\', '/')
     }
     $normalized = $winOrWslPath -replace '\\', '/'
-    $converted = (wsl -d Ubuntu -- wslpath -u "$normalized" 2>$null)
+    $converted = (wsl @wslArgs wslpath -u "$normalized" 2>$null)
     if ($LASTEXITCODE -eq 0 -and $converted) {
         return $converted.Trim()
     }
@@ -510,7 +526,7 @@ function Invoke-CodexTurn {
         $prevEap = $ErrorActionPreference
         $ErrorActionPreference = "Continue"
         [System.IO.File]::WriteAllText($turnLogFile, "", $utf8NoBom)
-        wsl -d Ubuntu -- bash -lc $bashScript 2>&1 | ForEach-Object {
+        wsl @wslArgs bash -lc $bashScript 2>&1 | ForEach-Object {
             $line = if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.Exception.Message } else { "$_" }
             [System.IO.File]::AppendAllText($turnLogFile, ($line + "`n"), $utf8NoBom)
             Write-Output $line

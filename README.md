@@ -2,7 +2,7 @@
 
 将 Antigravity 主 Agent（如 Neon / Argon / Claude）作为 **统筹大脑（Coordinator）**，将本机安装的 **OpenAI Codex CLI** 作为 **执行子 Agent 集群（Workers & Verifier）**，自带右侧可视化实时看板、关系拓扑图、模型与 6 档推理思考强度配置中心，以及 `@worker ⇄ @verifier` 全自动互审打回闭环。
 
-> **跨平台免 PowerShell**：默认执行引擎已全面统一为跨平台 Node.js (`codex-worker.mjs`)，在**未安装 PowerShell 的 macOS Antigravity 桌面端**上可直接一键安装并稳定运行，同时保持原有 Windows（含 WSL Ubuntu）兼容性不退化。
+> **跨平台免 PowerShell**：默认执行引擎已全面统一为跨平台 Node.js (`codex-worker.mjs`)，在**未安装 PowerShell 的 macOS Antigravity 桌面端**上可直接一键安装并稳定运行，同时保持原有 Windows（含 WSL）兼容性不退化。
 
 ---
 
@@ -21,6 +21,7 @@ bash install.sh
 node install.mjs
 ```
 - 支持预览模式：`bash install.sh --dry-run`（仅打印安装计划，不写入文件）。
+- 可用 `node install.mjs --data-dir "/path/to/swarm-data"` 指定看板、Worker 和 MCP 共用的数据目录。再次安装时会沿用上次选定的目录。修改目录后需重新加载插件进程。
 - 安装脚本会自动将插件复制到 `~/.gemini/config/plugins/codex-swarm`，并在已安装的 `mcp_config.json` 与 `sidecar.json` 中写入当前解析到的 `node` 绝对路径及增强 `PATH`，避免 macOS 桌面应用因 GUI 最小环境变量导致找不到 `node` 或 `codex`。
 
 ### Windows 一键安装
@@ -43,7 +44,8 @@ node install.mjs
    - 支持 `-WithArchitect` 先由 `@architect`（只读）输出架构蓝图，再自动交接给执行 Worker。
 4. **`--ephemeral` 无痕防污染**：默认开启无痕模式，子 Agent 任务不会弄乱你 Codex 桌面版左侧历史会话列表。
 5. **跨平台统一执行引擎 (`codex-worker.mjs`)**：
-   - 原生支持 macOS（Apple Silicon / Intel）、Linux、Windows 原生与 Windows WSL Ubuntu；Windows 上仍保留 `codex-worker.ps1` 作为兼容备选。
+   - 原生支持 macOS（Apple Silicon / Intel）、Linux、Windows 原生与 Windows WSL；Windows 上仍保留 `codex-worker.ps1` 作为兼容备选。
+   - WSL 使用系统默认发行版。工作目录为 `\\wsl.localhost\Debian\...` 或 `\\wsl$\Debian\...` 时，Worker 使用路径中的发行版。
 
 ---
 

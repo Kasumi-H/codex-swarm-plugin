@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Cross-Platform Codex Swarm Worker & Autonomous Peer-to-Peer Loop Engine
- * Supports: macOS (Apple Silicon & Intel), Linux, Windows Native, and WSL Ubuntu.
+ * Supports: macOS (Apple Silicon & Intel), Linux, Windows Native, and WSL.
  *
  * Usage:
  *   node codex-worker.mjs -WorkerName "coder" -Workdir "/path/to/repo" -PromptFile "/path/to/brief.md"
@@ -12,6 +12,7 @@ import { spawn, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { getDataDir } from '../../../runtime-config.mjs';
 
 // 1. Parse CLI arguments (supports both PowerShell-style -WorkerName and --worker-name)
 function parseArgs(argv) {
@@ -41,7 +42,7 @@ function parseArgs(argv) {
     useWsl: false,
     check: false,
     help: false,
-    outDir: path.join(os.homedir(), '.gemini', 'antigravity', 'plugin_data', 'codex-swarm')
+    outDir: getDataDir()
   };
 
   const normKey = (k) => k.replace(/^-+/, '').replace(/-([a-z])/g, (_, c) => c.toUpperCase());
@@ -105,7 +106,7 @@ if (opts.help) {
     '  -PersistSession  Persist session in Codex Desktop sidebar',
     '  -Worktree        Run worker in an isolated git worktree',
     '  -FullAccess      Pass --dangerously-bypass-approvals-and-sandbox',
-    '  -UseWsl          (Windows only) Run Codex inside WSL Ubuntu',
+    '  -UseWsl          (Windows only) Run Codex inside WSL',
     '  -OutDir          Override plugin_data output directory',
     '  --check          Print detected platform, Node, and Codex CLI paths and exit'
   ].join('\n'));
@@ -362,19 +363,17 @@ const effectiveAutoVerify =
       : Boolean(uiSettings.autoVerify);
 const effectiveMaxRounds = opts.maxRounds > 0 ? opts.maxRounds : Number(uiSettings.maxRounds) || 3;
 
-let isWslTarget =
-  isWin &&
-  (opts.useWsl || uiSettings.defaultRuntime === 'wsl' || /^\\\\wsl/i.test(opts.workdir) || opts.workdir.startsWith('/'));
-if (
-  isWin &&
-  uiSettings.defaultRuntime === 'windows' &&
-  !opts.useWsl &&
-  !/^\\\\wsl/i.test(opts.workdir) &&
-  !opts.workdir.startsWith('/')
-) {
-  isWslTarget = false;
+function getWslUncPath(value) {
+  return value.match(/^\\\\wsl(?:\.localhost|\$)\\([^\\]+)(\\.*)?$/i);
 }
-const runtimeLabel = isWslTarget ? 'WSL (Ubuntu)' : isMac ? 'macOS Native' : isWin ? 'Windows Native' : 'Linux Native';
+
+const wslWorkdir = getWslUncPath(opts.workdir);
+const wslDistro = wslWorkdir?.[1];
+const isWslTarget = isWin &&
+  (opts.useWsl || uiSettings.defaultRuntime === 'wsl' || wslWorkdir || opts.workdir.startsWith('/'));
+const wslArgs = wslDistro ? ['--distribution', wslDistro, '--'] : ['--'];
+const runtimeLabel = isWslTarget ? (wslDistro ? `WSL (${wslDistro})` : 'WSL (default)') :
+  isMac ? 'macOS Native' : isWin ? 'Windows Native' : 'Linux Native';
 
 function shellQuoteSingle(str) {
   return `'${String(str).replace(/'/g, `'\\''`)}'`;
@@ -382,10 +381,16 @@ function shellQuoteSingle(str) {
 
 function toWslPath(p) {
   if (p.startsWith('/')) return p;
-  const m = p.match(/^\\\\wsl(?:\.localhost|\$)\\[^\\]+(\\.*)$/i);
-  if (m) return m[1].replace(/\\/g, '/');
+  const unc = getWslUncPath(p);
+  if (unc) {
+    const activeDistro = wslDistro || execFileSync('wsl', [...wslArgs, 'printenv', 'WSL_DISTRO_NAME'], { encoding: 'utf8' }).trim();
+    if (unc[1].toLowerCase() !== activeDistro.toLowerCase()) {
+      throw new Error('WSL path belongs to a different distribution: ' + p);
+    }
+    return (unc[2] || '\\').replace(/\\/g, '/');
+  }
   const norm = p.replace(/\\/g, '/');
-  return execFileSync('wsl', ['-d', 'Ubuntu', '--', 'wslpath', '-u', norm], { encoding: 'utf8' }).trim();
+  return execFileSync('wsl', [...wslArgs, 'wslpath', '-u', norm], { encoding: 'utf8' }).trim();
 }
 
 let activeChild = null;
@@ -542,7 +547,7 @@ function invokeCodexTurn({ agentName, agentRole, turnMode, turnPrompt, turnModel
         const cmd = wslBriefFile
           ? `export PATH="$HOME/.local/bin:$PATH"; mkdir -p ${qWorkdir} && cd ${qWorkdir} && ${parts.join(' ')} < ${shellQuoteSingle(wslBriefFile)}`
           : `export PATH="$HOME/.local/bin:$PATH"; cd ${qWorkdir} && ${parts.join(' ')} </dev/null`;
-        child = spawn('wsl', ['-d', 'Ubuntu', '--', 'bash', '-lc', cmd], { windowsHide: true });
+        child = spawn('wsl', [...wslArgs, 'bash', '-lc', cmd], { windowsHide: true });
         activeChild = child;
       }
     } catch (err) {

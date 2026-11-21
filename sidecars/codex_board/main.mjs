@@ -13,9 +13,10 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SidecarApp, Response } from 'sidecar_sdk';
+import { getDataDir } from '../../runtime-config.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = join(homedir(), '.gemini', 'antigravity', 'plugin_data', 'codex-swarm');
+const DATA_DIR = getDataDir();
 const SETTINGS_PATH = join(DATA_DIR, 'settings.json');
 const MEMBERS_PATH = join(DATA_DIR, 'members.json');
 const BOARD_PATH = join(DATA_DIR, 'board.jsonl');
