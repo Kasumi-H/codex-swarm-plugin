@@ -13,11 +13,13 @@
      */
     :root {
       color-scheme: light;
+      --cs-gutter: clamp(8px, 3.8vw, 16px);
       /* Host Surfaces */
       --cs-bg: var(--background, #f7f7f8);
       --cs-card: var(--card, #ffffff);
       --cs-surface: color-mix(in srgb, var(--cs-fg) 4.5%, var(--cs-bg));
       --cs-input-bg: var(--card, #ffffff);
+      --cs-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4' fill='none' stroke='%23525a65' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 
       /* High-Contrast Theme-Adaptive Text */
       --cs-fg: var(--foreground, #18181b);
@@ -51,6 +53,7 @@
       color-scheme: dark;
       --cs-surface: color-mix(in srgb, var(--cs-fg) 7%, var(--cs-bg));
       --cs-input-bg: color-mix(in srgb, var(--cs-fg) 9%, var(--cs-bg));
+      --cs-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4' fill='none' stroke='%23c2c8d0' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
       --cs-border: color-mix(in srgb, var(--cs-fg) 18%, var(--cs-bg));
       --cs-border-strong: color-mix(in srgb, var(--cs-fg) 30%, var(--cs-bg));
 
@@ -73,11 +76,12 @@
       padding: 0;
       background: var(--cs-bg) !important;
       color: var(--cs-fg) !important;
-      font-family: var(--cs-font) !important;
+      font-family: var(--cs-font);
       font-size: 13px;
       line-height: 1.5;
       -webkit-font-smoothing: antialiased;
     }
+    button, input, select, textarea { font-family: inherit; }
 
     .app {
       display: flex;
@@ -90,7 +94,7 @@
 
     /* Header & Tabs */
     .header {
-      padding: 14px 16px 0 16px;
+      padding: 14px var(--cs-gutter) 0;
       border-bottom: 1px solid var(--cs-border);
       background: var(--cs-bg);
       flex-shrink: 0;
@@ -133,30 +137,16 @@
       50% { opacity: 0.45; }
     }
 
-    .subtitle-bar {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      color: var(--cs-fg-2);
-      margin-bottom: 10px;
-    }
-    .subtitle-bar b {
-      color: var(--cs-fg);
-      font-weight: 600;
-    }
-
     .tabs {
       display: flex;
-      gap: 20px;
+      gap: clamp(8px, 4vw, 20px);
+      overflow-x: auto;
     }
     .tab-btn {
       background: none;
       border: none;
       border-bottom: 2px solid transparent;
       padding: 7px 2px 9px 2px;
-      font-family: var(--cs-font);
       font-size: 13px;
       font-weight: 500;
       color: var(--cs-fg-2);
@@ -164,6 +154,7 @@
       display: inline-flex;
       align-items: center;
       gap: 5px;
+      white-space: nowrap;
       transition: color 0.15s, border-color 0.15s;
     }
     .tab-btn:hover {
@@ -191,7 +182,7 @@
     .main {
       flex: 1;
       overflow-y: auto;
-      padding: 14px 16px 28px 16px;
+      padding: 14px var(--cs-gutter) 28px;
     }
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
@@ -229,11 +220,23 @@
       background-color: var(--cs-input-bg);
       border: 1px solid var(--cs-border-strong);
       color: var(--cs-fg);
-      font-family: var(--cs-font);
       border-radius: 7px;
       padding: 6px 10px;
       font-size: 12.5px;
       outline: none;
+    }
+    .select-input {
+      appearance: none;
+      min-block-size: 32px;
+      padding-inline-end: 32px;
+      background-image: var(--cs-select-chevron);
+      background-position: right 10px center;
+      background-repeat: no-repeat;
+      background-size: 14px 14px;
+      text-overflow: ellipsis;
+    }
+    @media (forced-colors: active) {
+      .select-input { appearance: auto; background-image: none; padding-inline-end: 8px; }
     }
     .select-input option {
       background-color: var(--cs-bg);
@@ -252,7 +255,6 @@
       background: var(--cs-surface);
       border: 1px solid var(--cs-border-strong);
       color: var(--cs-fg);
-      font-family: var(--cs-font);
       border-radius: 7px;
       padding: 6px 11px;
       font-size: 12px;
@@ -266,6 +268,7 @@
     .btn:hover {
       border-color: var(--cs-primary);
     }
+    .btn:disabled { opacity: 0.6; cursor: wait; }
     .btn-primary {
       background: var(--cs-primary);
       border-color: var(--cs-primary);
@@ -279,24 +282,96 @@
     }
 
     /* Board Feed */
+    .board-summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin: 0 0 12px;
+    }
+    .board-summary > div {
+      display: flex;
+      flex-direction: column-reverse;
+      padding: 8px 10px;
+      border: 1px solid var(--cs-border);
+      border-radius: 8px;
+      background: var(--cs-surface);
+    }
+    .board-summary dt { color: var(--cs-fg-2); font-size: 11.5px; }
+    .board-summary dd {
+      margin: 0;
+      font-size: 21px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.2;
+    }
+    #board-working { color: var(--cs-blue); }
+    #board-reviewing { color: var(--cs-purple); }
+    #board-failed { color: var(--cs-red); }
+    #tab-board .toolbar { flex-wrap: wrap; }
+    #board-search { flex: 1 1 120px; min-width: 0; }
+    #board-filter-actor { max-width: 45%; }
+    #btn-clear-board { flex-shrink: 0; }
     .feed-list {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 8px;
     }
     .post-card {
-      padding: 12px 14px;
+      min-width: 0;
       border-radius: 10px;
       border: 1px solid var(--cs-border);
       background: var(--cs-surface);
+    }
+    .post-summary {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 4px 10px;
+      padding: 9px 11px;
+      border-radius: inherit;
+      cursor: pointer;
+      list-style: none;
+    }
+    .post-summary::-webkit-details-marker { display: none; }
+    .post-summary:hover { background: var(--cs-bg); }
+    .post-summary:focus-visible {
+      outline: 2px solid var(--cs-primary);
+      outline-offset: -2px;
+    }
+    .post-summary::after {
+      content: "";
+      grid-column: 2;
+      grid-row: 1;
+      place-self: center;
+      width: 6px;
+      height: 6px;
+      margin: 0 3px 3px;
+      border-bottom: 1.5px solid var(--cs-fg-2);
+      border-right: 1.5px solid var(--cs-fg-2);
+      transform: rotate(45deg);
+    }
+    .post-card[open] .post-summary::after {
+      margin: 3px 3px 0;
+      transform: rotate(225deg);
+    }
+    .post-preview {
+      grid-column: 1 / -1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--cs-fg-2);
+    }
+    .post-card[open] .post-preview { display: none; }
+    .post-detail {
+      padding: 8px 11px 11px;
+      border-top: 1px solid var(--cs-border);
     }
     .post-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
-      margin-bottom: 6px;
+      gap: 3px 8px;
       flex-wrap: wrap;
+      min-width: 0;
     }
     .post-route {
       display: flex;
@@ -304,6 +379,8 @@
       gap: 6px;
       flex-wrap: wrap;
       font-size: 12.5px;
+      overflow-wrap: anywhere;
+      min-width: 0;
     }
     .avatar-dot {
       width: 19px;
@@ -354,7 +431,7 @@
     /* Overview & Member Cards */
     .grid-stats {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr));
       gap: 10px;
       margin-bottom: 14px;
     }
@@ -419,9 +496,19 @@
       align-items: center;
       justify-content: space-between;
     }
+    #tab-config .config-title {
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    #tab-config .btn { flex-shrink: 0; }
+    .config-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
     .form-row {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
       gap: 10px;
       margin-bottom: 10px;
     }
@@ -429,12 +516,95 @@
       display: flex;
       flex-direction: column;
       gap: 5px;
+      min-width: 0;
     }
-    .form-field label {
+    #tab-config .form-field > :is(input, select) { width: 100%; min-width: 0; }
+    .form-field label, label.form-field {
       font-size: 12px;
       color: var(--cs-fg-2);
       font-weight: 600;
     }
+    .tab-panel.active { animation: panel-in 140ms ease-out; }
+    @keyframes panel-in {
+      from { opacity: 0.6; transform: translateY(3px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
+    .stat-card, .member-card, .config-section, .post-card, .board-summary > div {
+      border-radius: 10px;
+      background: var(--cs-card);
+    }
+    .panel-title {
+      margin: 0 0 10px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .main { scrollbar-gutter: stable; }
+    :is(.tab-btn, .btn, summary):focus-visible {
+      outline: 2px solid var(--cs-primary);
+      outline-offset: -2px;
+    }
+    .member-name { min-width: 0; overflow-wrap: anywhere; }
+    .member-card, .stat-value { overflow-wrap: anywhere; }
+    .log-box { overflow-wrap: anywhere; }
+    .log-box:empty { display: none; }
+    .graph-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+    .graph-heading .panel-title { margin: 0; }
+    #graph-reset[hidden] { display: none; }
+    .graph-canvas {
+      max-height: 228px;
+      overflow: auto;
+      border-radius: 8px;
+      border: 1px solid var(--cs-border);
+      background: var(--cs-bg);
+    }
+    .graph-canvas svg {
+      display: block;
+      width: 100%;
+      max-width: 360px;
+      height: auto;
+      max-height: 220px;
+      margin-inline: auto;
+      font-family: inherit;
+    }
+    .graph-canvas svg[data-scrollable] { max-height: none; }
+    .graph-item { cursor: pointer; }
+    .graph-item.is-muted { opacity: 0.55; }
+    .graph-canvas .graph-item:focus { outline: none; }
+    .graph-node:hover .graph-node-ring { stroke: var(--cs-blue); }
+    .graph-node .graph-node-highlight { opacity: 0; pointer-events: none; }
+    .graph-node.is-selected .graph-node-highlight { opacity: 1; }
+    .graph-node:focus-visible .graph-node-highlight { opacity: 1; stroke-dasharray: 2 2; }
+    .graph-edge-line { stroke: var(--cs-blue); stroke-width: 1.6; }
+    .graph-edge:hover .graph-edge-line,
+    .graph-edge:focus-visible .graph-edge-line,
+    .graph-edge.is-selected .graph-edge-line { stroke: var(--cs-purple); stroke-width: 3; }
+    .graph-detail { margin-top: 10px; }
+    .graph-detail h3 { margin: 0 0 6px; font-size: 13px; overflow-wrap: anywhere; }
+    .graph-detail p { margin: 0 0 6px; color: var(--cs-fg-2); overflow-wrap: anywhere; }
+    .graph-list { display: grid; gap: 4px; margin-top: 8px; }
+    .graph-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 3px 8px;
+      width: 100%;
+      padding: 6px 8px;
+      text-align: left;
+      font: inherit;
+      color: var(--cs-fg);
+      background: var(--cs-surface);
+      border: 1px solid transparent;
+      border-radius: 6px;
+      overflow-wrap: anywhere;
+    }
+    .graph-row:hover { border-color: var(--cs-border-strong); }
+    .graph-row[aria-pressed="true"] { background: var(--cs-blue-bg); }
+    .graph-row:focus-visible { outline: 1px solid var(--cs-blue); outline-offset: -1px; }
+    .graph-row small { color: var(--cs-fg-2); }
+    .post-card.is-linked { border-color: var(--cs-primary); }
     .toggle-row {
       display: flex;
       align-items: flex-start;
@@ -443,22 +613,77 @@
       padding: 9px 0;
       border-top: 1px solid var(--cs-border);
     }
-    .toggle-info { flex: 1; }
+    .toggle-info { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .toggle-controls { display: flex; align-items: center; gap: 6px; }
+    .toggle-row input[type="checkbox"] { flex-shrink: 0; }
     .toggle-title { font-weight: 600; font-size: 12.5px; color: var(--cs-fg); }
     .toggle-desc { font-size: 11.5px; color: var(--cs-fg-2); margin-top: 2px; }
 
+    #presets-container { display: grid; gap: 10px; }
     .preset-item {
-      padding: 10px;
-      border-radius: 8px;
+      padding: 11px 12px 12px;
+      border-radius: 10px;
       border: 1px solid var(--cs-border);
-      background: var(--cs-bg);
-      margin-bottom: 8px;
+      background: color-mix(in srgb, var(--cs-card) 78%, var(--cs-bg));
+      box-shadow: 0 1px 2px color-mix(in srgb, var(--cs-fg) 6%, transparent);
+    }
+    .preset-item:focus-within {
+      border-color: color-mix(in srgb, var(--cs-primary) 42%, var(--cs-border));
+    }
+    .preset-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding-bottom: 8px;
+      margin-bottom: 10px;
+      border-bottom: 1px solid var(--cs-border);
+    }
+    .preset-name {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      min-width: 0;
+      color: var(--cs-blue);
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .preset-name .p-name {
+      width: min(100%, 21ch);
+      min-width: 0;
+      padding: 3px 5px;
+      background: transparent;
+      border-color: transparent;
+      font: inherit;
+      color: var(--cs-fg);
+    }
+    .preset-name .p-name:hover { border-color: var(--cs-border); }
+    .preset-name .p-name:focus { border-color: var(--cs-primary); background: var(--cs-input-bg); }
+    .preset-item .p-del {
+      min-width: 28px;
+      min-height: 28px;
+      justify-content: center;
+      padding: 0;
+      background: transparent;
+      border-color: transparent;
+      color: var(--cs-fg-2);
+    }
+    .preset-item .p-del:hover, .preset-item .p-del:focus-visible {
+      background: var(--cs-red-bg);
+      color: var(--cs-red);
     }
     .preset-grid {
       display: grid;
-      grid-template-columns: 1.1fr 1.3fr 1fr 1.1fr auto;
-      gap: 6px;
-      align-items: center;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 116px), 1fr));
+      gap: 8px;
+    }
+    .preset-item .form-field { font-size: 11.5px; }
+    .preset-item :is(.select-input, .p-desc) { border-color: var(--cs-border); }
+    .preset-item :is(.select-input, .p-desc):focus { border-color: var(--cs-primary); }
+    .preset-description { margin-top: 9px; }
+    @media (max-width: 540px) {
+      .toggle-row:has(.toggle-controls) { flex-wrap: wrap; }
+      .toggle-row:has(.toggle-controls) .toggle-info { flex-basis: 100%; }
     }
 
     code {
@@ -523,13 +748,12 @@
           <span class="live-dot"></span><span>实时</span>
         </span>
       </div>
-      <div id="ui-subtitle" class="subtitle-bar"></div>
       <nav class="tabs" role="tablist">
         <button class="tab-btn" data-tab="overview">概览</button>
         <button class="tab-btn active" data-tab="board">看板 <span id="cnt-board" class="tab-count">0</span></button>
         <button class="tab-btn" data-tab="members">成员 <span id="cnt-members" class="tab-count">0</span></button>
         <button class="tab-btn" data-tab="graph">关系图</button>
-        <button class="tab-btn" data-tab="config">子Agent配置</button>
+        <button class="tab-btn" data-tab="config">配置</button>
       </nav>
     </header>
 
@@ -582,9 +806,14 @@
 
       <!-- 2. 看板 (Board) -->
       <section id="tab-board" class="tab-panel active">
+        <dl class="board-summary" aria-label="子 Agent 状态摘要">
+          <div><dt>执行中</dt><dd id="board-working">0</dd></div>
+          <div><dt>审查中</dt><dd id="board-reviewing">0</dd></div>
+          <div><dt>执行失败</dt><dd id="board-failed">0</dd></div>
+        </dl>
         <div class="toolbar">
-          <input id="board-search" type="search" class="search-input" placeholder="搜索看板消息、文件或子 Agent...">
-          <select id="board-filter-actor" class="select-input">
+          <input id="board-search" type="search" class="search-input" aria-label="搜索消息、文件或成员" placeholder="搜索消息">
+          <select id="board-filter-actor" class="select-input" aria-label="按成员筛选">
             <option value="">全部成员</option>
           </select>
           <button id="btn-clear-board" class="btn btn-danger" title="清空当前看板消息与已完成成员记录">清空看板</button>
@@ -594,18 +823,20 @@
 
       <!-- 3. 成员 (Members) -->
       <section id="tab-members" class="tab-panel">
+        <h2 class="panel-title">子 Agent 成员</h2>
         <div id="members-list"></div>
       </section>
 
       <!-- 4. 关系图 (Graph) -->
       <section id="tab-graph" class="tab-panel">
-        <div class="config-section" style="padding:12px;">
-          <div class="config-title" style="margin-bottom:6px;">
-            <span>子 Agent 网状自治与交接拓扑图 (@mention Graph)</span>
-            <span style="font-size:11.5px; font-weight:500; color:var(--cs-fg-2);">实时反映看板点对点呼叫与互审流向</span>
+        <div class="config-section">
+          <div class="graph-heading">
+            <h2 class="panel-title">成员与交接</h2>
+            <button id="graph-reset" class="btn" type="button" hidden>清除选择</button>
           </div>
-          <div id="graph-canvas" style="width:100%; overflow:hidden; border-radius:8px; background:var(--cs-bg); border:1px solid var(--cs-border); text-align:center;"></div>
-          <div id="graph-edges" style="margin-top:10px;"></div>
+          <div id="graph-canvas" class="graph-canvas"></div>
+          <div id="graph-detail" class="graph-detail"></div>
+          <div id="graph-edges" class="graph-list" aria-label="交接方向"></div>
         </div>
       </section>
 
@@ -613,17 +844,17 @@
       <section id="tab-config" class="tab-panel">
         <div class="config-section">
           <div class="config-title">
-            <span>全局默认模型与推理思考强度</span>
+            <span>默认模型与推理强度</span>
             <button id="btn-save-config" class="btn btn-primary">保存配置</button>
           </div>
 
           <div class="form-row">
             <div class="form-field">
-              <label>默认执行子 Agent (Worker) 模型</label>
+              <label for="cfg-default-model">Worker 模型</label>
               <select id="cfg-default-model" class="select-input"></select>
             </div>
             <div class="form-field">
-              <label>默认 Worker 推理思考强度</label>
+              <label for="cfg-default-effort">Worker 推理强度</label>
               <select id="cfg-default-effort" class="select-input">
                 <option value="low">low (极速)</option>
                 <option value="medium">medium (均衡)</option>
@@ -637,11 +868,11 @@
 
           <div class="form-row">
             <div class="form-field">
-              <label>默认审查官 (Verifier / Review) 模型</label>
+              <label for="cfg-verifier-model">Verifier 模型</label>
               <select id="cfg-verifier-model" class="select-input"></select>
             </div>
             <div class="form-field">
-              <label>默认审查官推理思考强度</label>
+              <label for="cfg-verifier-effort">Verifier 推理强度</label>
               <select id="cfg-verifier-effort" class="select-input">
                 <option value="low">low (极速)</option>
                 <option value="medium">medium (均衡)</option>
@@ -653,32 +884,36 @@
             </div>
           </div>
 
+        </div>
+
+        <div class="config-section">
+          <div class="config-title">执行与审查</div>
           <div class="form-row">
             <div class="form-field">
-              <label>默认沙箱权限 (-s)</label>
+              <label for="cfg-default-sandbox">默认沙箱权限</label>
               <select id="cfg-default-sandbox" class="select-input">
-                <option value="workspace-write">workspace-write (推荐：允许改工作区代码)</option>
-                <option value="read-only">read-only (只读调研/审查)</option>
-                <option value="danger-full-access">danger-full-access (完全权限)</option>
+                <option value="workspace-write">工作区可写</option>
+                <option value="read-only">只读</option>
+                <option value="danger-full-access">完全权限</option>
               </select>
             </div>
             <div class="form-field">
-              <label>运行环境 (Windows / WSL)</label>
+              <label for="cfg-default-runtime">运行环境</label>
               <select id="cfg-default-runtime" class="select-input">
-                <option value="auto">auto (根据项目路径自动选择 Windows 或 WSL)</option>
-                <option value="windows">Windows 原生 (codex.exe 0.171.0)</option>
-                <option value="wsl">WSL Ubuntu (codex 0.163.0)</option>
+                <option value="auto">按项目路径自动选择</option>
+                <option value="windows">Windows 原生</option>
+                <option value="wsl">WSL Ubuntu</option>
               </select>
             </div>
           </div>
 
           <div class="toggle-row">
             <div class="toggle-info">
-              <div class="toggle-title">子 Agent 自治互审闭环 (<code>@worker ⇄ @verifier</code> 自动交接与打回重修)</div>
+              <label for="cfg-auto-verify" class="toggle-title">自动互审与返工</label>
               <div class="toggle-desc">开启后，Worker 写完代码直接自动唤醒 <code>@verifier</code> 核验；若检出问题直接打回给 Worker 重修（全程在后台用本地 Codex 完成，不唤醒主脑、不耗 Neon 额度），直到全部 PASS 再汇报给主脑。</div>
             </div>
-            <div style="display:flex; align-items:center; gap:6px; margin-top:4px;">
-              <select id="cfg-max-rounds" class="select-input" style="padding:3px 6px; font-size:11.5px;" title="最大自动互审打回轮数">
+            <div class="toggle-controls">
+              <select id="cfg-max-rounds" class="select-input" title="最大自动互审打回轮数">
                 <option value="1">最多 1 轮</option>
                 <option value="2">最多 2 轮</option>
                 <option value="3" selected>最多 3 轮</option>
@@ -691,7 +926,7 @@
 
           <div class="toggle-row">
             <div class="toggle-info">
-              <div class="toggle-title">无痕子 Agent 模式 (<code>--ephemeral</code>，防污染 Codex 桌面版)</div>
+              <label for="cfg-ephemeral" class="toggle-title">无痕会话 (<code>--ephemeral</code>)</label>
               <div class="toggle-desc">开启后，Codex CLI 执行子任务不会写入 Codex 桌面版左侧会话历史，避免桌面版会话列表杂乱。</div>
             </div>
             <input type="checkbox" id="cfg-ephemeral" checked style="width:17px; height:17px; margin-top:4px;">
@@ -699,7 +934,7 @@
 
           <div class="toggle-row">
             <div class="toggle-info">
-              <div class="toggle-title">默认开启 Git Worktree 隔离 (<code>--worktree</code>)</div>
+              <label for="cfg-worktree" class="toggle-title">Git Worktree 隔离</label>
               <div class="toggle-desc">多个子 Agent 同时修改同一 Git 仓库重叠文件时，为每个子 Agent 自动创建独立 Git Worktree。</div>
             </div>
             <input type="checkbox" id="cfg-worktree" style="width:17px; height:17px; margin-top:4px;">
@@ -708,10 +943,10 @@
 
         <div class="config-section">
           <div class="config-title">
-            <span>子 Agent 角色预设（按名字自动匹配模型与思考强度）</span>
-            <div style="display:flex; gap:6px;">
-              <button id="btn-sync-presets" class="btn" title="将上方设置的默认 Worker / Verifier 模型与思考强度一键同步到下方所有预设">同步上方默认到预设</button>
-              <button id="btn-add-preset" class="btn">+ 新增预设角色</button>
+            <span>角色预设</span>
+            <div class="config-actions">
+              <button id="btn-sync-presets" class="btn" title="将默认 Worker / Verifier 模型与推理强度同步到所有预设">同步默认值</button>
+              <button id="btn-add-preset" class="btn">+ 新增角色</button>
             </div>
           </div>
           <div id="presets-container"></div>
@@ -724,10 +959,10 @@
     <span>⚠ 有未保存的修改（保存后子 Agent 才会使用）</span>
     <button id="btn-save-dirty" class="btn btn-primary">保存配置</button>
   </div>
-  <div id="toast" class="toast">已保存配置</div>
+  <div id="toast" class="toast" role="status"></div>
 
   <script>
-    // ---------- Live Host Theme & Font Sync ----------
+    // ---------- Live Host Theme Sync ----------
     // Detects whether Antigravity's --background is light or dark whenever
     // preload.js receives a `theme-change` event from the host window.
     function syncHostTheme() {
@@ -746,12 +981,6 @@
           document.documentElement.dataset.theme = theme;
         }
       }
-      // Keep body styles synced with host variables
-      if (document.body) {
-        document.body.style.background = 'var(--cs-bg)';
-        document.body.style.color = 'var(--cs-fg)';
-        document.body.style.fontFamily = 'var(--cs-font)';
-      }
     }
 
     syncHostTheme();
@@ -766,7 +995,11 @@
     });
 
     const EFFORT_OPTIONS = ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
-    const SANDBOX_OPTIONS = ['workspace-write', 'read-only', 'danger-full-access'];
+    const SANDBOX_OPTIONS = {
+      'workspace-write': '工作区可写',
+      'read-only': '只读',
+      'danger-full-access': '完全权限'
+    };
 
     let state = {
       settings: null,
@@ -775,6 +1008,8 @@
       messages: []
     };
     let configDirty = false;
+    let configRevision = 0;
+    let configSaveQueue = Promise.resolve();
 
     function apiFetch(url, options = {}) {
       if (window.sidecar && typeof window.sidecar.fetch === 'function') {
@@ -786,22 +1021,52 @@
       });
     }
 
+    let toastTimer;
     function showToast(text) {
       const el = document.getElementById('toast');
+      clearTimeout(toastTimer);
       el.textContent = text;
       el.style.display = 'block';
-      setTimeout(() => { el.style.display = 'none'; }, 2000);
+      toastTimer = setTimeout(() => { el.style.display = 'none'; }, 2000);
     }
 
-    // Tab switching
-    document.querySelectorAll('.tab-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
-        document.querySelectorAll('.tab-panel').forEach((p) => p.classList.remove('active'));
-        btn.classList.add('active');
-        document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    const tabs = [...document.querySelectorAll('.tab-btn')];
+    const mainScroll = document.querySelector('.main');
+    const tabScrolls = new Map();
+    let activeTab = 'board';
+
+    function activateTab(name) {
+      if (name !== activeTab) tabScrolls.set(activeTab, mainScroll.scrollTop);
+      const changed = name !== activeTab;
+      activeTab = name;
+      for (const tab of tabs) {
+        const selected = tab.dataset.tab === name;
+        tab.classList.toggle('active', selected);
+        tab.setAttribute('aria-selected', String(selected));
+        tab.tabIndex = selected ? 0 : -1;
+        document.getElementById(tab.getAttribute('aria-controls')).classList.toggle('active', selected);
+      }
+      if (changed) mainScroll.scrollTop = tabScrolls.get(name) || 0;
+    }
+
+    tabs.forEach((tab, index) => {
+      const panel = document.getElementById('tab-' + tab.dataset.tab);
+      tab.id = 'nav-' + tab.dataset.tab;
+      tab.setAttribute('role', 'tab');
+      tab.setAttribute('aria-controls', panel.id);
+      panel.setAttribute('role', 'tabpanel');
+      panel.setAttribute('aria-labelledby', tab.id);
+      tab.addEventListener('click', () => activateTab(tab.dataset.tab));
+      tab.addEventListener('keydown', (event) => {
+        const destinations = { ArrowLeft: (index + tabs.length - 1) % tabs.length, ArrowRight: (index + 1) % tabs.length, Home: 0, End: tabs.length - 1 };
+        const destination = destinations[event.key];
+        if (destination === undefined) return;
+        event.preventDefault();
+        activateTab(tabs[destination].dataset.tab);
+        tabs[destination].focus();
       });
     });
+    activateTab(activeTab);
 
     function escapeHtml(str) {
       return String(str ?? '')
@@ -826,7 +1091,7 @@
       const models = state.models.length ? state.models : [{ slug: 'gpt-5.6-sol', displayName: 'GPT-5.6-Sol' }];
       const slugs = new Set(models.map((m) => m.slug));
       let html = models
-        .map((m) => `<option value="${escapeHtml(m.slug)}">${escapeHtml(m.displayName || m.slug)} (${escapeHtml(m.slug)})</option>`)
+        .map((m) => `<option value="${escapeHtml(m.slug)}">${escapeHtml(m.displayName || m.slug)}</option>`)
         .join('');
       if (currentVal && !slugs.has(currentVal)) {
         html = `<option value="${escapeHtml(currentVal)}">${escapeHtml(currentVal)}</option>` + html;
@@ -835,8 +1100,12 @@
       selectEl.value = currentVal;
     }
 
+    let lastConfigView = '';
     function renderConfigForm() {
       if (!state.settings || configDirty) return;
+      const view = JSON.stringify([state.settings, state.models]);
+      if (view === lastConfigView || document.querySelector('#tab-config :is(input, select):focus')) return;
+      lastConfigView = view;
       const s = state.settings;
       populateModelSelect(document.getElementById('cfg-default-model'), s.defaultModel);
       document.getElementById('cfg-default-effort').value = s.defaultReasoningEffort || 'high';
@@ -855,28 +1124,42 @@
       const container = document.getElementById('presets-container');
       const models = state.models.length ? state.models : [{ slug: 'gpt-5.6-sol', displayName: 'GPT-5.6-Sol' }];
       container.innerHTML = presets.map((p, idx) => {
-        const modelOpts = models.map((m) =>
+        const presetModels = p.model && !models.some((m) => m.slug === p.model)
+          ? [{ slug: p.model }, ...models]
+          : models;
+        const modelOpts = presetModels.map((m) =>
           `<option value="${escapeHtml(m.slug)}" ${m.slug === p.model ? 'selected' : ''}>${escapeHtml(m.slug)}</option>`
         ).join('');
         const effortOpts = EFFORT_OPTIONS.map((ef) =>
           `<option value="${ef}" ${ef === p.reasoningEffort ? 'selected' : ''}>${ef}</option>`
         ).join('');
-        const sandboxOpts = SANDBOX_OPTIONS.map((sb) =>
-          `<option value="${sb}" ${sb === p.sandbox ? 'selected' : ''}>${sb}</option>`
+        const sandboxOpts = Object.entries(SANDBOX_OPTIONS).map(([value, label]) =>
+          `<option value="${value}" ${value === p.sandbox ? 'selected' : ''}>${label}</option>`
         ).join('');
 
         return `
           <div class="preset-item" data-idx="${idx}">
+            <div class="preset-header">
+              <label class="preset-name">
+                <span aria-hidden="true">@</span>
+                <input type="text" class="text-input p-name" aria-label="角色名" value="${escapeHtml(p.name)}" placeholder="如 coder">
+              </label>
+              <button type="button" class="btn p-del" data-idx="${idx}" aria-label="删除 ${escapeHtml(p.name)} 预设" title="删除预设">✕</button>
+            </div>
             <div class="preset-grid">
-              <input type="text" class="text-input p-name" value="${escapeHtml(p.name)}" placeholder="角色名 (如 coder)">
-              <select class="select-input p-model">${modelOpts}</select>
-              <select class="select-input p-effort">${effortOpts}</select>
-              <select class="select-input p-sandbox">${sandboxOpts}</select>
-              <button class="btn btn-danger p-del" data-idx="${idx}" title="删除预设">✕</button>
+              <label class="form-field">模型
+                <select class="select-input p-model">${modelOpts}</select>
+              </label>
+              <label class="form-field">推理强度
+                <select class="select-input p-effort">${effortOpts}</select>
+              </label>
+              <label class="form-field">沙箱权限
+                <select class="select-input p-sandbox">${sandboxOpts}</select>
+              </label>
             </div>
-            <div style="margin-top:6px;">
-              <input type="text" class="text-input p-desc" style="width:100%;" value="${escapeHtml(p.desc || '')}" placeholder="职责说明（例如：负责核心业务代码与单测）">
-            </div>
+            <label class="form-field preset-description">职责说明
+              <input type="text" class="text-input p-desc" value="${escapeHtml(p.desc || '')}" placeholder="例如：负责核心业务代码与单测">
+            </label>
           </div>
         `;
       }).join('');
@@ -888,7 +1171,10 @@
         });
       });
       container.querySelectorAll('input').forEach((el) => {
-        el.addEventListener('input', () => { configDirty = true; });
+        el.addEventListener('input', () => {
+          configDirty = true;
+          configRevision++;
+        });
         el.addEventListener('change', () => {
           configDirty = true;
           saveConfig();
@@ -964,7 +1250,9 @@
       });
     });
 
-    async function saveConfig() {
+    function saveConfig() {
+      const revision = ++configRevision;
+      configDirty = true;
       const payload = {
         defaultModel: document.getElementById('cfg-default-model').value,
         defaultReasoningEffort: document.getElementById('cfg-default-effort').value,
@@ -978,17 +1266,25 @@
         worktree: document.getElementById('cfg-worktree').checked,
         presets: collectPresetsFromDom()
       };
-      const res = await apiFetch('/api/settings', {
-        method: 'POST',
-        body: JSON.stringify(payload)
+      configSaveQueue = configSaveQueue.then(async () => {
+        try {
+          const res = await apiFetch('/api/settings', { method: 'POST', body: JSON.stringify(payload) });
+          if (!res.ok) throw new Error('Settings request failed');
+          const data = await res.json();
+          if (!data.ok) throw new Error('Settings save failed');
+          state.settings = data.settings;
+          if (revision === configRevision) {
+            configDirty = false;
+            renderHeaderAndOverview();
+            showToast('已保存配置');
+          }
+          return true;
+        } catch {
+          if (revision === configRevision) showToast('保存失败，请重试');
+          return false;
+        }
       });
-      const data = await res.json();
-      if (data.ok) {
-        state.settings = data.settings;
-        configDirty = false;
-        renderHeaderAndOverview();
-        showToast('✓ 已保存子 Agent 模型与思考强度配置');
-      }
+      return configSaveQueue;
     }
 
     document.getElementById('btn-save-config').addEventListener('click', saveConfig);
@@ -1000,15 +1296,6 @@
     function renderHeaderAndOverview() {
       const s = state.settings || {};
       document.getElementById('ui-swarm-title').textContent = s.swarmTitle || 'Codex Swarm 协作看板';
-      document.getElementById('ui-subtitle').innerHTML = `
-        <span>Worker: <b>${escapeHtml(s.defaultModel || 'gpt-5.6-sol')}</b> (${escapeHtml(s.defaultReasoningEffort || 'high')})</span>
-        <span>·</span>
-        <span>Verifier: <b>${escapeHtml(s.verifierModel || 'gpt-5.6-sol')}</b> (${escapeHtml(s.verifierReasoningEffort || 'xhigh')})</span>
-        <span>·</span>
-        <span>${s.ephemeral !== false ? '无痕防污染 (--ephemeral)' : '持久化会话'}</span>
-        ${(s.presets || []).length ? `<div style="flex-basis:100%;">预设: ${(s.presets || []).map((p) => `<b>${escapeHtml(p.name)}</b> ${escapeHtml(p.model)}(${escapeHtml(p.reasoningEffort)})`).join(' · ')}</div>` : ''}
-      `;
-
       document.getElementById('ov-worker-model').textContent = `${s.defaultModel || 'gpt-5.6-sol'} · ${s.defaultReasoningEffort || 'high'}`;
       document.getElementById('ov-verifier-model').textContent = `${s.verifierModel || 'gpt-5.6-sol'} · ${s.verifierReasoningEffort || 'xhigh'}`;
       const workingCnt = state.members.filter((m) => m.status === 'working').length;
@@ -1030,25 +1317,49 @@
       return [];
     }
 
+    const openPosts = new Set();
+    let lastBoardView = '';
+
+    function boardPostKey(message) {
+      return JSON.stringify([message.seq, message.ts, message.from]);
+    }
+
     function renderBoard() {
       const msgs = state.messages || [];
-      document.getElementById('cnt-board').textContent = String(msgs.length);
+      const counts = { 'cnt-board': msgs.length, 'board-working': 0, 'board-reviewing': 0, 'board-failed': 0 };
+      for (const member of state.members) {
+        if (member.status === 'failed') counts['board-failed']++;
+        if (member.status === 'working') {
+          counts[member.role === 'verifier' ? 'board-reviewing' : 'board-working']++;
+        }
+      }
+      for (const [id, count] of Object.entries(counts)) {
+        const el = document.getElementById(id);
+        if (el.textContent !== String(count)) el.textContent = String(count);
+      }
 
       const filterEl = document.getElementById('board-filter-actor');
       const currentActor = filterEl.value;
+      const q = document.getElementById('board-search').value.trim().toLowerCase();
+      const view = JSON.stringify([currentActor, q, msgs]);
+      if (view === lastBoardView) return;
+      lastBoardView = view;
+
       const actors = new Set(['coordinator']);
       msgs.forEach((m) => {
         if (m.from) actors.add(m.from);
         toListArray(m.to).forEach((t) => actors.add(t));
       });
-      filterEl.innerHTML = `<option value="">全部成员</option>` +
-        [...actors].map((a) => `<option value="${escapeHtml(a)}">@${escapeHtml(a)}</option>`).join('');
-      filterEl.value = currentActor;
+      if (Array.from(filterEl.options, (option) => option.value).join('\0') !== ['', ...actors].join('\0')) {
+        filterEl.innerHTML = `<option value="">全部成员</option>` +
+          [...actors].map((a) => `<option value="${escapeHtml(a)}">@${escapeHtml(a)}</option>`).join('');
+        filterEl.value = actors.has(currentActor) ? currentActor : '';
+      }
 
-      const q = document.getElementById('board-search').value.trim().toLowerCase();
+      const selectedActor = filterEl.value;
       const filtered = msgs.filter((m) => {
         const recipients = toListArray(m.to);
-        if (currentActor && m.from !== currentActor && !recipients.includes(currentActor)) {
+        if (selectedActor && m.from !== selectedActor && !recipients.includes(selectedActor)) {
           return false;
         }
         if (q) {
@@ -1059,8 +1370,17 @@
       });
 
       const feedEl = document.getElementById('board-feed');
+      for (const post of feedEl.querySelectorAll('details[data-post-key]')) {
+        if (post.open) openPosts.add(post.dataset.postKey);
+        else openPosts.delete(post.dataset.postKey);
+      }
+      const availableKeys = new Set(msgs.map(boardPostKey));
+      for (const key of openPosts) {
+        if (!availableKeys.has(key)) openPosts.delete(key);
+      }
+
       if (!filtered.length) {
-        feedEl.innerHTML = `
+        feedEl.innerHTML = msgs.length ? '<div class="empty-state">没有符合当前筛选条件的消息</div>' : `
           <div class="empty-state">
             <div style="font-weight:700; margin-bottom:6px; color:var(--cs-fg);">看板暂无子 Agent 协作记录</div>
             <div style="font-size:12px;">当你在左侧聊天输入 <code>/codex-swarm</code> 下发任务时，统筹者（Coordinator）与各个本地 Codex 子 Agent 的派单、模型参数、思考强度和完成汇报都会实时显示在这里。</div>
@@ -1076,14 +1396,20 @@
         const avatarLetter = isCoord ? 'C' : (isVerifier ? 'V' : 'W');
         const recipients = toListArray(m.to);
         const toList = (recipients.length ? recipients : ['all']).map((t) => `@${escapeHtml(t)}`).join(' ');
+        const message = String(m.text ?? '');
+        const preview = message.replace(/\s+/g, ' ').trim() || '无消息正文';
 
         let statusBadge = '';
-        if (m.status === 'working' || m.type === 'assign') {
-          statusBadge = `<span class="badge badge-working">● 派单执行</span>`;
+        if (m.status === 'failed' || m.type === 'failed') {
+          statusBadge = `<span class="badge badge-failed">${m.type === 'stall' ? '巡检告警' : '执行异常'}</span>`;
+        } else if (isVerifier && m.status === 'working' && message.startsWith('[检出问题 -> 打回 ')) {
+          statusBadge = '<span class="badge badge-working">打回重修</span>';
+        } else if (!isVerifier && !isCoord && m.status === 'done' && recipients.includes('verifier')) {
+          statusBadge = '<span class="badge badge-effort">提交审查</span>';
         } else if (m.status === 'done' || m.type === 'done') {
-          statusBadge = `<span class="badge badge-done">✓ 已完成${m.elapsedSec ? ' · ' + m.elapsedSec + 's' : ''}</span>`;
-        } else if (m.status === 'failed') {
-          statusBadge = `<span class="badge badge-failed">✗ 执行异常</span>`;
+          statusBadge = `<span class="badge badge-done">已完成${m.elapsedSec ? ' · ' + escapeHtml(m.elapsedSec) + 's' : ''}</span>`;
+        } else if (m.status === 'working' || m.type === 'assign') {
+          statusBadge = '<span class="badge badge-working">派单执行</span>';
         }
 
         const tags = [];
@@ -1092,36 +1418,47 @@
         if (m.sandbox) tags.push(`<span class="badge badge-waiting">${escapeHtml(m.sandbox)}</span>`);
         if (m.runtime) tags.push(`<span class="badge badge-waiting">${escapeHtml(m.runtime)}</span>`);
 
+        const key = boardPostKey(m);
         return `
-          <div class="post-card">
-            <div class="post-header">
-              <div class="post-route">
-                <span class="avatar-dot ${avatarClass}">${avatarLetter}</span>
-                <span class="actor-from">@${escapeHtml(m.from)}</span>
-                <span class="actor-arrow">→</span>
-                <span class="actor-to">${toList}</span>
-                ${statusBadge}
-              </div>
-              <div class="post-meta">
-                <span>#${escapeHtml(m.seq)}</span>
-                <span>·</span>
-                <span>${formatTime(m.ts)}</span>
-              </div>
+          <details class="post-card" data-post-key="${escapeHtml(key)}"${openPosts.has(key) ? ' open' : ''}>
+            <summary class="post-summary">
+              <span class="post-header">
+                <span class="post-route">
+                  <span class="avatar-dot ${avatarClass}" aria-hidden="true">${avatarLetter}</span>
+                  <span class="actor-from">@${escapeHtml(m.from)}</span>
+                  <span class="actor-arrow">→</span>
+                  <span class="actor-to">${toList}</span>
+                  ${statusBadge}
+                </span>
+                <span class="post-meta">
+                  <span>#${escapeHtml(m.seq)}</span>
+                  <span>·</span>
+                  <span>${formatTime(m.ts)}</span>
+                </span>
+              </span>
+              <span class="post-preview">${escapeHtml(preview)}</span>
+            </summary>
+            <div class="post-detail">
+              ${tags.length ? `<div class="post-tags">${tags.join('')}</div>` : ''}
+              <div class="post-body">${escapeHtml(message || '无消息正文')}</div>
             </div>
-            ${tags.length ? `<div class="post-tags">${tags.join('')}</div>` : ''}
-            <div class="post-body">${escapeHtml(m.text)}</div>
-          </div>
+          </details>
         `;
       }).join('');
     }
 
+    let lastMembersView = '';
     function renderMembers() {
       const members = state.members || [];
       const presets = (state.settings && state.settings.presets) || [];
       document.getElementById('cnt-members').textContent = String(members.length || presets.length);
 
       const container = document.getElementById('members-list');
+      const view = JSON.stringify([members.length > 0, members.length ? members.map(({ liveLog, ...member }) => member) : presets]);
+      const rebuild = view !== lastMembersView;
+      lastMembersView = view;
       if (!members.length) {
+        if (!rebuild) return;
         container.innerHTML = `
           <div style="margin-bottom:10px; font-size:12px; color:var(--cs-fg-2); font-weight:500;">当前暂无正在运行的子 Agent，以下为你已配置的预设子 Agent 阵容：</div>
           ${presets.map((p) => `
@@ -1145,7 +1482,7 @@
         return;
       }
 
-      container.innerHTML = members.map((m) => {
+      if (rebuild) container.innerHTML = members.map((m) => {
         let badge = `<span class="badge badge-waiting">${escapeHtml(m.status || 'waiting')}</span>`;
         if (m.status === 'working') badge = `<span class="badge badge-working">● 执行中 (Working)</span>`;
         else if (m.status === 'done') badge = `<span class="badge badge-done">✓ 已完成 (${m.elapsedSec || 0}s)</span>`;
@@ -1168,10 +1505,18 @@
             </div>
             ${m.workdir ? `<div style="font-size:11.5px; color:var(--cs-fg-2); margin-bottom:4px;">工作目录: <code>${escapeHtml(m.workdir)}</code></div>` : ''}
             ${m.brief ? `<div style="font-size:12px; color:var(--cs-fg); margin-top:4px;"><b>任务摘要:</b> ${escapeHtml(m.brief.slice(0, 220))}${m.brief.length > 220 ? '...' : ''}</div>` : ''}
-            ${m.liveLog ? `<div class="log-box">${escapeHtml(m.liveLog)}</div>` : ''}
+            <div class="log-box" tabindex="0" aria-label="实时日志"></div>
           </div>
         `;
       }).join('');
+      container.querySelectorAll('.log-box').forEach((log, index) => {
+        const content = members[index].liveLog || '';
+        if (log.textContent === content) return;
+        const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 4;
+        const previousScroll = log.scrollTop;
+        log.textContent = content;
+        log.scrollTop = atBottom ? log.scrollHeight : previousScroll;
+      });
     }
 
     document.getElementById('board-search').addEventListener('input', renderBoard);
@@ -1184,138 +1529,215 @@
     });
 
     document.getElementById('btn-send-swarm').addEventListener('click', async () => {
-      const taskText = document.getElementById('quick-task-input').value.trim();
+      const input = document.getElementById('quick-task-input');
+      const button = document.getElementById('btn-send-swarm');
+      const original = input.value;
+      const taskText = original.trim();
       if (!taskText) {
         showToast('请先输入任务描述');
         return;
       }
-      if (configDirty) {
-        await saveConfig();
-      }
-      const s = state.settings || {};
-      const msg = `/codex-swarm [配置参数: 默认Worker模型=${s.defaultModel}, 思考强度=${s.defaultReasoningEffort}; Verifier模型=${s.verifierModel}, 思考强度=${s.verifierReasoningEffort}; 无痕模式=${s.ephemeral !== false}]\n${taskText}`;
-      if (window.sidecar && window.sidecar.agent && typeof window.sidecar.agent.sendMessage === 'function') {
-        try {
+      button.disabled = true;
+      try {
+        if (configDirty && !await saveConfig()) return;
+        const s = state.settings || {};
+        const msg = `/codex-swarm [配置参数: 默认Worker模型=${s.defaultModel}, 思考强度=${s.defaultReasoningEffort}; Verifier模型=${s.verifierModel}, 思考强度=${s.verifierReasoningEffort}; 无痕模式=${s.ephemeral !== false}]\n${taskText}`;
+        if (typeof window.sidecar?.agent?.sendMessage === 'function') {
           await window.sidecar.agent.sendMessage(msg);
-          document.getElementById('quick-task-input').value = '';
+          if (input.value === original) input.value = '';
           showToast('✓ 已发送 /codex-swarm 任务到当前会话');
-        } catch (err) {
-          showToast('发送失败: ' + err.message);
+        } else {
+          await navigator.clipboard.writeText(msg);
+          showToast('已复制 /codex-swarm 指令到剪贴板');
         }
-      } else {
-        navigator.clipboard?.writeText(msg);
-        showToast('已复制 /codex-swarm 指令到剪贴板');
+      } catch (err) {
+        showToast('任务发送或复制失败');
+      } finally {
+        button.disabled = false;
       }
     });
 
+    const graphCanvas = document.getElementById('graph-canvas');
+    const graphEdges = document.getElementById('graph-edges');
+    const graphDetail = document.getElementById('graph-detail');
+    const graphReset = document.getElementById('graph-reset');
+    let graphSelection = '';
+    let graphView = '';
+    let graphDetailView = '';
+    let graphNodes = new Map();
+    let graphLinks = new Map();
+
+    function renderGraphSelection() {
+      const node = graphNodes.get(graphSelection);
+      const link = graphLinks.get(graphSelection);
+      const related = node
+        ? [...graphLinks.values()].filter((edge) => edge.from === node.name || edge.to === node.name)
+        : [];
+      const relatedIds = new Set(related.map((edge) => edge.id));
+      const neighbors = new Set(related.flatMap((edge) => [edge.from, edge.to]));
+      if (link) {
+        neighbors.add(link.from);
+        neighbors.add(link.to);
+      }
+      graphReset.hidden = !graphSelection;
+      for (const item of document.querySelectorAll('#tab-graph [data-graph-id]')) {
+        const id = item.dataset.graphId;
+        const selected = id === graphSelection;
+        const member = graphNodes.get(id);
+        const connected = member ? neighbors.has(member.name) : relatedIds.has(id);
+        item.classList.toggle('is-selected', selected);
+        item.classList.toggle('is-muted', Boolean(graphSelection && !selected && !connected && item.closest('svg')));
+        item.setAttribute('aria-pressed', String(selected));
+      }
+
+      const detailView = JSON.stringify([node, link, related.length]);
+      if (detailView === graphDetailView) return;
+      graphDetailView = detailView;
+      if (node) {
+        const status = { active: '在线', working: '执行中', done: '已完成', failed: '执行失败', waiting: '待命' };
+        const role = { coordinator: '统筹', monitor: '巡检', verifier: '审查', worker: '执行' };
+        const metadata = [role[node.role] || node.role, status[node.status] || node.status, node.model, node.effort];
+        graphDetail.innerHTML = `<h3>@${escapeHtml(node.name)}</h3>
+          <p>${metadata.filter(Boolean).map(escapeHtml).join(' · ')} · ${related.length} 条交接方向</p>`;
+      } else if (link) {
+        graphDetail.innerHTML = `<h3>@${escapeHtml(link.from)} → @${escapeHtml(link.to)}</h3>
+          <p>${link.count} 条消息 · 最新 #${escapeHtml(link.latest.seq)}</p>
+          <p>${escapeHtml(String(link.latest.text || '').trim().split(/\r?\n/, 1)[0])}</p>
+          <button type="button" class="btn" id="graph-open-message">在看板查看</button>`;
+      } else {
+        graphDetail.innerHTML = '<p>选择成员或连线，查看状态与交接记录。</p>';
+      }
+    }
+
+    function chooseGraphItem(id) {
+      graphSelection = graphSelection === id ? '' : id;
+      renderGraphSelection();
+    }
+
+    document.getElementById('tab-graph').addEventListener('click', (event) => {
+      const item = event.target.closest('[data-graph-id]');
+      if (item) chooseGraphItem(item.dataset.graphId);
+      if (event.target.id !== 'graph-open-message') return;
+      const link = graphLinks.get(graphSelection);
+      if (!link) return;
+      document.getElementById('board-search').value = '';
+      document.getElementById('board-filter-actor').value = '';
+      renderBoard();
+      activateTab('board');
+      const key = boardPostKey(link.latest);
+      const card = [...document.querySelectorAll('#board-feed [data-post-key]')].find((post) => post.dataset.postKey === key);
+      if (!card) return;
+      document.querySelector('.post-card.is-linked')?.classList.remove('is-linked');
+      card.classList.add('is-linked');
+      card.open = true;
+      card.querySelector('summary').focus({ preventScroll: true });
+      card.scrollIntoView({ block: 'nearest' });
+    });
+    graphCanvas.addEventListener('keydown', (event) => {
+      const item = event.target.closest('[data-graph-id]');
+      if (!item || !['Enter', ' '].includes(event.key)) return;
+      event.preventDefault();
+      chooseGraphItem(item.dataset.graphId);
+    });
+    graphReset.addEventListener('click', () => {
+      const previous = graphSelection;
+      chooseGraphItem(previous);
+      [...graphCanvas.querySelectorAll('[data-graph-id]')].find((item) => item.dataset.graphId === previous)?.focus();
+    });
+
     function renderGraph() {
-      const canvas = document.getElementById('graph-canvas');
-      const edgesBox = document.getElementById('graph-edges');
-      if (!canvas || !edgesBox) return;
+      const members = new Map();
+      const addMember = (name, role, status, model, effort) => {
+        members.set(name, { id: `member:${name}`, name, role, status, model, effort });
+      };
+      addMember('coordinator', 'coordinator', 'active');
+      addMember('monitor', 'monitor', 'active');
+      for (const preset of state.settings?.presets || []) {
+        addMember(preset.name, preset.role || 'worker', 'waiting', preset.model, preset.reasoningEffort);
+      }
+      for (const member of state.members) {
+        addMember(member.name, member.role || 'worker', member.status || 'waiting', member.model, member.reasoningEffort);
+      }
 
-      const presets = (state.settings && state.settings.presets) || [];
-      const membersMap = new Map();
-      membersMap.set('coordinator', { name: 'coordinator', role: 'coordinator', status: 'active' });
-      membersMap.set('monitor', { name: 'monitor', role: 'monitor', status: 'active' });
-      presets.forEach((p) => {
-        membersMap.set(p.name, { name: p.name, role: p.role || 'worker', status: 'waiting', model: p.model, effort: p.reasoningEffort });
-      });
-      (state.members || []).forEach((m) => {
-        membersMap.set(m.name, { name: m.name, role: m.role || 'worker', status: m.status || 'waiting', model: m.model, effort: m.reasoningEffort });
-      });
-
-      const edgeCounts = new Map();
-      (state.messages || []).forEach((m) => {
-        const from = m.from || 'coordinator';
-        if (!membersMap.has(from)) membersMap.set(from, { name: from, role: 'worker', status: 'done' });
-        toListArray(m.to).forEach((to) => {
-          if (to === 'all') return;
-          if (!membersMap.has(to)) membersMap.set(to, { name: to, role: 'worker', status: 'waiting' });
-          const k = `${from}->${to}`;
-          const prev = edgeCounts.get(k) || { from, to, count: 0, lastSeq: 0 };
-          prev.count += 1;
-          if (Number(m.seq) > prev.lastSeq) prev.lastSeq = Number(m.seq);
-          edgeCounts.set(k, prev);
-        });
-      });
-
-      const nodes = [...membersMap.values()];
-      const W = 440, H = 290, cx = W / 2, cy = H / 2, R = 102;
-      const coords = new Map();
-      nodes.forEach((n, idx) => {
-        if (n.name === 'coordinator') {
-          coords.set(n.name, { x: cx, y: 38 });
-        } else {
-          const others = nodes.filter((x) => x.name !== 'coordinator');
-          const i = others.findIndex((x) => x.name === n.name);
-          const angle = Math.PI * 0.15 + (Math.PI * 0.7 * (i / Math.max(1, others.length - 1)));
-          coords.set(n.name, {
-            x: Math.round(cx + R * 1.35 * Math.cos(angle)),
-            y: Math.round(78 + R * 1.45 * Math.sin(angle))
-          });
+      const links = new Map();
+      for (const message of state.messages) {
+        const from = message.from || 'coordinator';
+        if (!members.has(from)) addMember(from, message.role || 'worker', 'done');
+        for (const to of new Set(toListArray(message.to))) {
+          if (to === 'all') continue;
+          if (!members.has(to)) addMember(to, 'worker', 'waiting');
+          const id = 'link:' + JSON.stringify([from, to]);
+          const link = links.get(id) || { id, from, to, count: 0, latest: message };
+          link.count += 1;
+          if (Number(message.seq) > Number(link.latest.seq)) link.latest = message;
+          links.set(id, link);
         }
-      });
-
-      let svgEdges = '';
-      for (const e of edgeCounts.values()) {
-        const p1 = coords.get(e.from);
-        const p2 = coords.get(e.to);
-        if (!p1 || !p2) continue;
-        const dx = p2.x - p1.x, dy = p2.y - p1.y;
-        const dist = Math.hypot(dx, dy) || 1;
-        const ux = dx / dist, uy = dy / dist;
-        const x1 = p1.x + ux * 24, y1 = p1.y + uy * 24;
-        const x2 = p2.x - ux * 26, y2 = p2.y - uy * 26;
-        const mx = (x1 + x2) / 2 - uy * 12, my = (y1 + y2) / 2 + ux * 12;
-        const isPeer = e.from !== 'coordinator' && e.to !== 'coordinator';
-        const strokeColor = isPeer ? 'var(--cs-purple)' : 'var(--cs-blue)';
-        svgEdges += `
-          <path d="M ${x1} ${y1} Q ${mx} ${my} ${x2} ${y2}" fill="none" stroke="${strokeColor}" stroke-width="2" marker-end="url(#arrow)" opacity="0.85"/>
-          <text x="${mx}" y="${my - 4}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--cs-fg)">#${e.lastSeq} (${e.count})</text>
-        `;
       }
+      const nodes = [...members.values()];
+      const edges = [...links.values()].sort((a, b) => Number(b.latest.seq) - Number(a.latest.seq));
+      const view = JSON.stringify([nodes, edges]);
+      if (view === graphView) return;
+      graphView = view;
+      graphNodes = new Map(nodes.map((node) => [node.id, node]));
+      graphLinks = links;
+      if (!graphNodes.has(graphSelection) && !links.has(graphSelection)) graphSelection = '';
 
-      let svgNodes = '';
-      for (const n of nodes) {
-        const p = coords.get(n.name);
-        if (!p) continue;
-        let fill = '#16a34a';
-        if (n.name === 'coordinator') fill = '#0284c7';
-        else if (n.role === 'verifier' || n.name === 'verifier') fill = '#7c3aed';
-        else if (n.name === 'monitor') fill = '#d97706';
+      const focus = document.activeElement?.dataset.graphId;
+      const focusTarget = document.activeElement?.closest('#graph-edges') ? graphEdges : graphCanvas;
+      const width = 360;
+      const height = Math.max(134, 62 + Math.ceil((nodes.length - 1) / 3) * 62);
+      const positions = new Map(nodes.map((node, index) => {
+        const position = index === 0 ? [180, 25] : [60 + (index - 1) % 3 * 120, 84 + Math.floor((index - 1) / 3) * 62];
+        return [node.name, position];
+      }));
+      const palette = { coordinator: '#0284c7', monitor: '#b45309', verifier: '#7c3aed', worker: '#15803d' };
+      const svgNodes = nodes.map((node) => {
+        const [x, y] = positions.get(node.name);
+        const name = node.name.length > 15 ? node.name.slice(0, 14) + '…' : node.name;
+        const ring = node.status === 'failed' ? 'var(--cs-red)' : node.status === 'working' ? 'var(--cs-amber)' : 'var(--cs-border-strong)';
+        return `<g class="graph-item graph-node" role="button" tabindex="0" aria-label="@${escapeHtml(node.name)}"
+            data-graph-id="${escapeHtml(node.id)}" transform="translate(${x} ${y})">
+          <title>@${escapeHtml(node.name)}</title>
+          <circle class="graph-node-highlight" r="19.5" fill="none" stroke="var(--cs-blue)" stroke-width="1.25"/>
+          <circle class="graph-node-ring" r="16" fill="var(--cs-card)" stroke="${ring}" stroke-width="1.5"/>
+          <circle r="12.5" fill="${palette[node.role] || palette.worker}"/>
+          <text y="4" text-anchor="middle" font-size="10" font-weight="700" fill="white">${escapeHtml(node.name.slice(0, 2).toUpperCase())}</text>
+          <text y="28" text-anchor="middle" font-size="12" font-weight="600" fill="var(--cs-fg)">@${escapeHtml(name)}</text>
+        </g>`;
+      }).join('');
+      const svgEdges = edges.map((edge) => {
+        const [x1, y1] = positions.get(edge.from);
+        const [x2, y2] = positions.get(edge.to);
+        const distance = Math.hypot(x2 - x1, y2 - y1) || 1;
+        const dx = (x2 - x1) / distance;
+        const dy = (y2 - y1) / distance;
+        const curve = edge.from === edge.to
+          ? `M ${x1 + 16} ${y1 - 10} C ${x1 + 58} ${y1 - 56} ${x1 + 58} ${y1 + 20} ${x1 + 21} ${y1 + 6}`
+          : `M ${x1 + 20 * dx} ${y1 + 20 * dy} Q ${(x1 + x2) / 2 - 16 * dy} ${(y1 + y2) / 2 + 16 * dx} ${x2 - 21 * dx} ${y2 - 21 * dy}`;
+        const label = `@${escapeHtml(edge.from)} → @${escapeHtml(edge.to)}`;
+        return `<g class="graph-item graph-edge" role="button" tabindex="0" aria-label="${label}" data-graph-id="${escapeHtml(edge.id)}">
+          <title>${label} · ${edge.count} 条消息</title>
+          <path class="graph-edge-line" d="${curve}" fill="none" marker-end="url(#graph-arrow)"/>
+          <path d="${curve}" fill="none" stroke="transparent" stroke-width="15"/>
+        </g>`;
+      }).join('');
 
-        const ring = n.status === 'working'
-          ? `<circle cx="${p.x}" cy="${p.y}" r="24" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="4 3"/>`
-          : '';
-        svgNodes += `
-          ${ring}
-          <circle cx="${p.x}" cy="${p.y}" r="19" fill="${fill}"/>
-          <text x="${p.x}" y="${p.y + 4}" text-anchor="middle" font-size="11" font-weight="700" fill="#ffffff">${escapeHtml(n.name.slice(0, 2).toUpperCase())}</text>
-          <text x="${p.x}" y="${p.y + 33}" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--cs-fg)">@${escapeHtml(n.name)}</text>
-        `;
+      graphCanvas.innerHTML = `<svg viewBox="0 0 ${width} ${height}"${nodes.length > 10 ? ' data-scrollable' : ''} aria-label="子 Agent 交接图" xmlns="http://www.w3.org/2000/svg">
+        <defs><marker id="graph-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M 0 1 L 10 5 L 0 9 z" fill="var(--cs-blue)"/>
+        </marker></defs>
+        ${svgEdges}${svgNodes}
+      </svg>`;
+      graphEdges.innerHTML = edges.map((edge) => `
+        <button type="button" class="graph-row graph-item" data-graph-id="${escapeHtml(edge.id)}">
+          <span>@${escapeHtml(edge.from)} → @${escapeHtml(edge.to)}</span>
+          <small>${edge.count} 条消息</small>
+        </button>
+      `).join('');
+      renderGraphSelection();
+      if (focus) {
+        [...focusTarget.querySelectorAll('[data-graph-id]')].find((item) => item.dataset.graphId === focus)?.focus({ preventScroll: true });
       }
-
-      canvas.innerHTML = `
-        <svg viewBox="0 0 ${W} ${H}" width="100%" height="260" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-              <path d="M 0 1 L 10 5 L 0 9 z" fill="var(--cs-blue)"/>
-            </marker>
-          </defs>
-          ${svgEdges}
-          ${svgNodes}
-        </svg>
-      `;
-
-      const edgesArr = [...edgeCounts.values()].sort((a, b) => b.lastSeq - a.lastSeq);
-      edgesBox.innerHTML = edgesArr.length
-        ? edgesArr.map((e) => `
-            <div style="display:flex; justify-content:space-between; padding:5px 8px; border-bottom:1px solid var(--cs-border); font-size:12px;">
-              <span><b>@${escapeHtml(e.from)}</b> → <b style="color:var(--cs-blue);">@${escapeHtml(e.to)}</b> ${e.from !== 'coordinator' && e.to !== 'coordinator' ? '<span class="badge badge-effort">子Agent点对点自治</span>' : ''}</span>
-              <span style="color:var(--cs-fg-2);">共 ${e.count} 次通信 · 最新 #${e.lastSeq}</span>
-            </div>
-          `).join('')
-        : `<div style="font-size:12px; color:var(--cs-fg-2); text-align:center;">暂无点对点消息边，派单后自动生成拓扑图</div>`;
     }
 
     let lastHtmlMtime = 0;
