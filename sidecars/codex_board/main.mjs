@@ -7,7 +7,7 @@
  * - Members (成员 - 子 Agent 状态、实时日志、模型与推理强度)
  * - Config (配置 - 默认/各子 Agent 模型、推理思考强度、无痕防污染开关 --ephemeral)
  */
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, statSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -109,36 +109,88 @@ function saveSettings(patch) {
 let modelsCache = { at: 0, list: null };
 const MODELS_TTL_MS = 10 * 60 * 1000;
 
+function buildEnhancedPath() {
+  const isWin = process.platform === 'win32';
+  const sep = isWin ? ';' : ':';
+  const home = homedir();
+  const dirs = [];
+  const addDir = (d) => {
+    if (d && !dirs.includes(d) && existsSync(d)) dirs.push(d);
+  };
+
+  addDir(dirname(process.execPath));
+
+  if (isWin) {
+    if (process.env.APPDATA) addDir(join(process.env.APPDATA, 'npm'));
+    addDir(join(home, '.codex', '.sandbox-bin'));
+  } else {
+    for (const d of [
+      '/opt/homebrew/bin',
+      '/opt/homebrew/sbin',
+      '/usr/local/bin',
+      join(home, '.local', 'bin'),
+      join(home, '.bun', 'bin'),
+      join(home, '.volta', 'bin'),
+      join(home, '.npm-global', 'bin'),
+      join(home, '.asdf', 'shims'),
+      join(home, '.local', 'share', 'mise', 'shims'),
+      join(home, '.nodenv', 'shims'),
+      join(home, '.fnm', 'aliases', 'default', 'bin')
+    ]) {
+      addDir(d);
+    }
+    const nvmDir = join(home, '.nvm', 'versions', 'node');
+    if (existsSync(nvmDir)) {
+      try {
+        const versions = readdirSync(nvmDir).sort().reverse();
+        for (const v of versions) addDir(join(nvmDir, v, 'bin'));
+      } catch {}
+    }
+  }
+
+  for (const existing of (process.env.PATH || '').split(sep)) {
+    if (existing && !dirs.includes(existing)) dirs.push(existing);
+  }
+  return dirs.join(sep);
+}
+
 function findCodexExe() {
   const isWin = process.platform === 'win32';
   const isMac = process.platform === 'darwin';
-  try {
-    const extRoot = join(homedir(), '.vscode', 'extensions');
-    if (existsSync(extRoot)) {
-      const binName = isWin ? 'codex.exe' : 'codex';
-      const archDirs = isWin
-        ? ['windows-x86_64', 'windows-arm64']
-        : isMac
-          ? ['darwin-arm64', 'darwin-x86_64']
-          : ['linux-x86_64', 'linux-arm64'];
-      const candidates = [];
+  const home = homedir();
+  const extRoots = [
+    join(home, '.vscode', 'extensions'),
+    join(home, '.cursor', 'extensions'),
+    join(home, '.antigravity', 'extensions')
+  ];
+  const binName = isWin ? 'codex.exe' : 'codex';
+  const archDirs = isWin
+    ? ['windows-x86_64', 'windows-arm64']
+    : isMac
+      ? ['darwin-arm64', 'darwin-x86_64']
+      : ['linux-x86_64', 'linux-arm64'];
+
+  const candidates = [];
+  for (const extRoot of extRoots) {
+    try {
+      if (!existsSync(extRoot)) continue;
       for (const d of readdirSync(extRoot).filter((x) => x.startsWith('openai.chatgpt-'))) {
         for (const arch of archDirs) {
           const p = join(extRoot, d, 'bin', arch, binName);
           if (existsSync(p)) candidates.push(p);
         }
       }
-      candidates.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
-      if (candidates.length) return candidates[0];
-    }
-  } catch {}
-  if (!isWin) {
-    for (const p of [
-      '/opt/homebrew/bin/codex',
-      '/usr/local/bin/codex',
-      join(homedir(), '.local', 'bin', 'codex'),
-      join(homedir(), '.bun', 'bin', 'codex')
-    ]) {
+    } catch {}
+  }
+  candidates.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
+  if (candidates.length) return candidates[0];
+
+  const sep = isWin ? ';' : ':';
+  const pathDirs = buildEnhancedPath().split(sep);
+  const names = isWin ? ['codex.exe', 'codex.cmd', 'codex'] : ['codex'];
+  for (const dir of pathDirs) {
+    for (const n of names) {
+      const p = join(dir, n);
       if (existsSync(p)) return p;
     }
   }
@@ -175,7 +227,15 @@ function loadAvailableModels() {
   ];
   let list = null;
   try {
-    const out = execFileSync(findCodexExe(), ['debug', 'models'], { encoding: 'utf-8', timeout: 15000, windowsHide: true });
+    const codexExe = findCodexExe();
+    const needsShell = process.platform === 'win32' && /\.(cmd|bat)$/i.test(codexExe);
+    const out = execFileSync(codexExe, ['debug', 'models'], {
+      encoding: 'utf-8',
+      timeout: 15000,
+      windowsHide: true,
+      shell: needsShell,
+      env: { ...process.env, PATH: buildEnhancedPath() }
+    });
     const parsed = JSON.parse(out);
     const arr = Array.isArray(parsed) ? parsed : parsed.models;
     if (Array.isArray(arr)) list = normalizeModels(arr);
@@ -190,6 +250,7 @@ function loadAvailableModels() {
   modelsCache = { at: Date.now(), list };
   return list;
 }
+
 function loadMembers() {
   ensureDataDir();
   if (!existsSync(MEMBERS_PATH)) return {};
@@ -250,12 +311,7 @@ function appendBoardMessage(msg) {
     text: String(msg.text || '')
   };
   ensureDataDir();
-  const line = JSON.stringify(entry) + '\n';
-  if (existsSync(BOARD_PATH)) {
-    writeFileSync(BOARD_PATH, readFileSync(BOARD_PATH, 'utf-8') + line, 'utf-8');
-  } else {
-    writeFileSync(BOARD_PATH, line, 'utf-8');
-  }
+  appendFileSync(BOARD_PATH, JSON.stringify(entry) + '\n', 'utf-8');
   return entry;
 }
 

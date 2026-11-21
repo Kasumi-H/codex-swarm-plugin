@@ -2,7 +2,7 @@
   "name": "codex-swarm",
   "displayName": "Codex Swarm",
   "version": "1.0.0",
-  "description": "Use Antigravity as the Swarm Coordinator and delegate coding, refactoring, testing, and code review tasks to local OpenAI Codex CLI workers (Windows & WSL) to save Antigravity model quota.",
+  "description": "Use Antigravity as the Swarm Coordinator and delegate coding, refactoring, testing, and code review tasks to local OpenAI Codex CLI workers (macOS, Linux, Windows & WSL) to save Antigravity model quota.",
   "logo": "assets/logo.svg",
   "suggestedPrompts": [
     "用 codex-swarm 并行拆分并完成当前项目的开发任务",
